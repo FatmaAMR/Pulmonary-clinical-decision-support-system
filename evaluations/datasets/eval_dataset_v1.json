@@ -1,0 +1,26 @@
+{
+  "top_k": 3,
+  "mode": "hybrid",
+  "test_cases": [
+    {
+      "query": "Who introduced the Transformer architecture and Attention mechanism?",
+      "expected_keywords": ["Ashish Vaswani", "Google Brain", "Attention Is All You Need"],
+      "should_abstain": false
+    },
+    {
+      "query": "What is the alphanumeric code and serial number mentioned in the stress test section?",
+      "expected_keywords": ["TX-9902-A", "84729-XXL-01"],
+      "should_abstain": false
+    },
+    {
+      "query": "How are semantic search and lexical search fused together?",
+      "expected_keywords": ["Reciprocal Rank Fusion", "RRF"],
+      "should_abstain": false
+    },
+    {
+      "query": "What is the recommended surgical dosage of pediatric amoxicillin?",
+      "expected_keywords": [],
+      "should_abstain": true
+    }
+  ]
+}

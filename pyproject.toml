@@ -1,0 +1,30 @@
+[project]
+name = "rag-engine"
+version = "0.1.0"
+description = "rag engine reusable pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.162.0",
+    "fastembed>=0.9.1",
+    "groq>=1.7.0",
+    "psycopg[binary,pool]>=3.3.6",
+    "pymupdf>=2.0",
+    "pymupdf4llm>=2.0",
+    "python-multipart>=0.0.32",
+    "pyyaml>=6.0.3",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+]
+
+
+[tool.pytest.ini_options]
+pythonpath = ["rag_engine"]
+testpaths = ["tests"]
+addopts = "-v"

@@ -1,0 +1,13 @@
+{
+    "version": "v1_hybrid_rerank_baseline",
+    "date": "2026-10-26",
+    "total_queries": 4,
+    "metrics": {
+        "hit_rate_at_k": 1.0,
+        "mrr_score": 1.0,
+        "ndcg_at_k": 1.0,
+        "context_precision_at_k": 0.3333,
+        "abstention_accuracy": 0.75
+    },
+    "notes": "Initial evaluation using hash embedder, pgvector hybrid search, and overlap reranker with default threshold 0.25."
+}

@@ -1,0 +1,134 @@
+pipeline_name: "enterprise_rag_engine"
+
+document_store:
+  provider: "${RAG_STORE_PROVIDER:postgres_store}"
+  params:
+    dsn: "${RAG_DB_DSN:postgresql://postgres:postgres@localhost:5433/rag_db}"
+
+ingestion:
+  supported_formats: [".pdf", ".md", ".json", ".txt"]
+  normalizers:
+    - name: "unicode_whitespace_cleaner"
+      params:
+        preserve_paragraphs: true
+    - name: "regex_noise_cleaner"
+      params:
+        patterns_to_remove:
+          - 'RAG Systems Evaluation Framework\s*Page \d+ of \d+'
+    - name: "regex_pii_redactor"
+      params:
+        replacement_token: "[REDACTED]"
+    - name: "arabic_text_normalizer"
+      params:
+        remove_diacritics: true
+        remove_tatweel: true
+        unify_alef: true
+        unify_yeh: true
+    - name: "dictionary_abbreviation_expander"
+      params:
+        custom_abbreviations:
+          "CXR": "Chest X-ray"
+          "PE": "Pleural Effusion"
+  chunker:
+    name: "markdown_section_chunker"
+    params:
+      chunk_size: ${RAG_CHUNK_SIZE:512}
+      chunk_overlap: ${RAG_CHUNK_OVERLAP:64}
+      boundary_lookback_ratio: ${RAG_BOUNDARY_LOOKBACK_RATIO:0.6}
+      separators: ["\n\n", "\n", ". ", "؟ ", "! ", " "]
+
+retrieval:
+  abstention_threshold: ${RAG_ABSTENTION_THRESHOLD:0.2}
+  embedder:
+    name: "fastembed_embedder"
+    params:
+      model_name: "${RAG_EMBEDDER_MODEL:BAAI/bge-small-en-v1.5}"
+      dim: ${RAG_EMBEDDING_DIM:384}
+  vector_store:
+    provider: "pgvector_store"
+    params:
+      dsn: "${RAG_DB_DSN:postgresql://postgres:postgres@localhost:5433/rag_db}"
+      dimension: ${RAG_EMBEDDING_DIM:384}
+      rrf_k: ${RAG_RRF_K:60}
+  reranker:
+    name: "hybrid_overlap_reranker"
+    params:
+      semantic_weight: ${RAG_SEMANTIC_WEIGHT:0.45}
+      lexical_weight: ${RAG_LEXICAL_WEIGHT:0.55}
+      section_boost: ${RAG_SECTION_BOOST:0.15}
+      stopwords:
+        - "what"
+        - "is"
+        - "are"
+        - "how"
+        - "does"
+        - "do"
+        - "the"
+        - "a"
+        - "an"
+        - "in"
+        - "on"
+        - "of"
+        - "to"
+        - "for"
+        - "and"
+        - "or"
+        - "with"
+        - "by"
+        - "from"
+        - "about"
+        - "explain"
+        - "tell"
+        - "me"
+        - "work"
+        - "works"
+        - "working"
+        - "can"
+        - "you"
+        - "who"
+        - "where"
+        - "when"
+        - "why"
+
+generation:
+  name: "groq_generator"
+  params:
+    model_name: "${RAG_LLM_MODEL:allam-2-7b}"
+    temperature: ${RAG_LLM_TEMP:0.1}
+    max_tokens: ${RAG_LLM_MAX_TOKENS:1024}
+    preferred_defaults:
+      - "allam-2-7b"
+      - "qwen/qwen3.8-27b"
+      - "openai/gpt-oss-120b"
+      - "openai/gpt-oss-20b"
+    excluded_model_keywords:
+      - "whisper"
+      - "orpheus"
+      - "tts"
+      - "guard"
+      - "playai"
+      - "embed"
+    system_prompt: |
+      You are a strict, evidence-based technical AI assistant.
+      RULES:
+      1. Answer the question using ONLY the provided Context Chunks.
+      2. You MUST cite the exact source number at the end of every factual sentence using the bracketed format [Source 1], [Source 2], etc.
+      3. Example of required citation style: 'The Transformer architecture was introduced by Ashish Vaswani at Google Brain in June 2017 [Source 1].'
+      4. Never use outside knowledge. If the context does not contain the answer, state clearly that the provided documents do not cover that specific detail.
+    user_prompt_template: |
+      Context Chunks:
+      {context_text}
+
+      Question: {query}
+
+      Provide a clear answer with mandatory inline [Source X] citations:
+
+guardrails:
+  min_citation_token_overlap: ${RAG_MIN_CITATION_OVERLAP:3}
+  max_snippet_preview_chars: 200
+  refusal_phrases:
+    - "do not specifically discuss"
+    - "does not contain"
+    - "do not cover"
+    - "cannot answer"
+    - "insufficient"
