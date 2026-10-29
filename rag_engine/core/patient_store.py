@@ -1,3 +1,4 @@
+import re
 import json
 import sqlite3
 from datetime import datetime, timezone
@@ -61,6 +62,9 @@ class PatientRecordStore:
                         cur.execute(
                             f"ALTER TABLE clinical_patients ADD COLUMN IF NOT EXISTS {col_name} {col_def};"
                         )
+                    cur.execute(
+                        "UPDATE clinical_patients SET last_xray_prediction = '' WHERE last_xray_prediction LIKE '%404%' OR last_xray_prediction LIKE '%Pending%';"
+                    )
                 conn.commit()
         else:
             cur = self._sqlite_conn.cursor()
@@ -70,21 +74,41 @@ class PatientRecordStore:
             for col_name, col_def in new_cols:
                 if col_name not in existing_cols:
                     cur.execute(f"ALTER TABLE clinical_patients ADD COLUMN {col_name} {col_def};")
+            cur.execute(
+                "UPDATE clinical_patients SET last_xray_prediction = '' WHERE last_xray_prediction LIKE '%404%' OR last_xray_prediction LIKE '%Pending%';"
+            )
             self._sqlite_conn.commit()
+
+    def generate_next_patient_id(self) -> str:
+        patients = self.list_patients()
+        max_num = 0
+        for p in patients:
+            pid = p.get("patient_id", "")
+            m = re.match(r"^PT-(\d+)$", pid, flags=re.IGNORECASE)
+            if m:
+                max_num = max(max_num, int(m.group(1)))
+        return f"PT-{max_num + 1:04d}"
 
     def _deserialize(self, row_dict: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         if not row_dict:
             return None
         out = dict(row_dict)
+        pred = out.get("last_xray_prediction") or ""
+        if "404" in pred or pred.lower().startswith("pending"):
+            out["last_xray_prediction"] = ""
         try:
-            out["timeline"] = json.loads(out.get("timeline_json") or "[]")
+            raw_tl = json.loads(out.get("timeline_json") or "[]")
+            out["timeline"] = [
+                t for t in raw_tl
+                if "404" not in str(t.get("prediction", ""))
+            ]
         except Exception:
             out["timeline"] = []
         return out
 
     def upsert_patient(
         self,
-        patient_id: str,
+        patient_id: Optional[str] = None,
         patient_name: Optional[str] = None,
         gender: Optional[str] = None,
         age: Optional[str] = None,
@@ -99,7 +123,11 @@ class PatientRecordStore:
         last_xray_prediction: Optional[str] = None,
         new_timeline_entry: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        existing = self.get_patient(patient_id) or {}
+        clean_id = (patient_id or "").strip()
+        if not clean_id or clean_id.upper() == "AUTO":
+            clean_id = self.generate_next_patient_id()
+
+        existing = self.get_patient(clean_id) or {}
         now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
         timeline = list(existing.get("timeline") or [])
@@ -108,7 +136,7 @@ class PatientRecordStore:
             timeline.insert(0, entry_with_time)
 
         record = {
-            "patient_id": patient_id.strip(),
+            "patient_id": clean_id,
             "patient_name": patient_name if patient_name is not None else existing.get("patient_name", ""),
             "gender": gender if gender is not None else existing.get("gender", ""),
             "age": age if age is not None else existing.get("age", ""),
@@ -233,7 +261,7 @@ class PatientRecordStore:
                 return deleted
         else:
             cur = self._sqlite_conn.cursor()
-            cur.execute("DELETE FROM clinical_patients WHERE patient_id = ?", (patient_id.strip(),))
+            cur.execute("SELECT * FROM clinical_patients WHERE patient_id = ?", (patient_id.strip(),))
             deleted = cur.rowcount > 0
             self._sqlite_conn.commit()
             return deleted
