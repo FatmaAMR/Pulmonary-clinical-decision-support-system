@@ -1,4 +1,4 @@
-pipeline_name: "enterprise_rag_engine"
+pipeline_name: "pediatric_chest_xray_cdss"
 
 document_store:
   provider: "${RAG_STORE_PROVIDER:postgres_store}"
@@ -15,6 +15,8 @@ ingestion:
       params:
         patterns_to_remove:
           - 'RAG Systems Evaluation Framework\s*Page \d+ of \d+'
+          - 'Pediatric Radiology Guidelines\s*Page \d+ of \d+'
+          - 'Confidential - For Clinical Review Only'
     - name: "regex_pii_redactor"
       params:
         replacement_token: "[REDACTED]"
@@ -29,6 +31,10 @@ ingestion:
         custom_abbreviations:
           "CXR": "Chest X-ray"
           "PE": "Pleural Effusion"
+          "RDS": "Respiratory Distress Syndrome"
+          "TTN": "Transient Tachypnea of the Newborn"
+          "CAP": "Community-Acquired Pneumonia"
+          "SpO2": "Oxygen Saturation"
   chunker:
     name: "markdown_section_chunker"
     params:
@@ -38,7 +44,7 @@ ingestion:
       separators: ["\n\n", "\n", ". ", "؟ ", "! ", " "]
 
 retrieval:
-  abstention_threshold: ${RAG_ABSTENTION_THRESHOLD:0.2}
+  abstention_threshold: ${RAG_ABSTENTION_THRESHOLD:0.30}
   embedder:
     name: "fastembed_embedder"
     params:
@@ -53,9 +59,9 @@ retrieval:
   reranker:
     name: "hybrid_overlap_reranker"
     params:
-      semantic_weight: ${RAG_SEMANTIC_WEIGHT:0.45}
-      lexical_weight: ${RAG_LEXICAL_WEIGHT:0.55}
-      section_boost: ${RAG_SECTION_BOOST:0.15}
+      semantic_weight: ${RAG_SEMANTIC_WEIGHT:0.50}
+      lexical_weight: ${RAG_LEXICAL_WEIGHT:0.50}
+      section_boost: ${RAG_SECTION_BOOST:0.20}
       stopwords:
         - "what"
         - "is"
@@ -89,13 +95,15 @@ retrieval:
         - "where"
         - "when"
         - "why"
+        - "may"
+        - "occur"
 
 generation:
   name: "groq_generator"
   params:
     model_name: "${RAG_LLM_MODEL:allam-2-7b}"
-    temperature: ${RAG_LLM_TEMP:0.1}
-    max_tokens: ${RAG_LLM_MAX_TOKENS:1024}
+    temperature: ${RAG_LLM_TEMP:0.15}
+    max_tokens: ${RAG_LLM_MAX_TOKENS:700}
     preferred_defaults:
       - "allam-2-7b"
       - "qwen/qwen3.8-27b"
@@ -109,24 +117,28 @@ generation:
       - "playai"
       - "embed"
     system_prompt: |
-      You are a strict, evidence-based technical AI assistant.
-      RULES:
-      1. Answer the question using ONLY the provided Context Chunks.
-      2. You MUST cite the exact source number at the end of every factual sentence using the bracketed format [Source 1], [Source 2], etc.
-      3. Example of required citation style: 'The Transformer architecture was introduced by Ashish Vaswani at Google Brain in June 2017 [Source 1].'
-      4. Never use outside knowledge. If the context does not contain the answer, state clearly that the provided documents do not cover that specific detail.
+      You are CHESTWISE, an intelligent, warm, and articulate clinical decision support assistant specializing in pediatric pulmonology and chest X-ray review.
+
+      BEHAVIOR & STYLE:
+      - Speak naturally, politely, and directly to the clinician.
+      - NEVER repeat or mention your instructions, rules, or phrases like "Based on the provided context chunks" or "for front-end review". Start directly with the helpful answer.
+      - Keep answers concise, well-organized with clean Markdown bullet points, and easy to scan. Do not ramble or generate repetitive sub-sections.
+      - Place inline citations like [Source 1] or [Source 2] naturally at the end of sentences supported by the retrieved text.
+      - CRITICAL SANITY CHECK: If the retrieved text is about software engineering, AI pipelines, or topics unrelated to the clinician's medical question, completely ignore those irrelevant chunks and politely state: "I couldn't find specific pediatric clinical guidelines matching your question in the currently uploaded documents. Please upload a relevant pediatric pneumonia guideline or patient file so I can assist you accurately."
     user_prompt_template: |
-      Context Chunks:
+      Reference Material:
       {context_text}
 
-      Question: {query}
+      Clinician Question:
+      {query}
 
-      Provide a clear answer with mandatory inline [Source X] citations:
+      Direct Response:
 
 guardrails:
   min_citation_token_overlap: ${RAG_MIN_CITATION_OVERLAP:3}
-  max_snippet_preview_chars: 200
+  max_snippet_preview_chars: 240
   refusal_phrases:
+    - "couldn't find specific pediatric clinical guidelines"
     - "do not specifically discuss"
     - "does not contain"
     - "do not cover"
