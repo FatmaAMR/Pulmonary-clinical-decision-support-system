@@ -7,3 +7,4 @@ logs/
 .env
 __pycache__/
 *.pyc
+classifiers/poneumonia/models/resnet50.pt
