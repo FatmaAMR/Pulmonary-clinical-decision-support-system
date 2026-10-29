@@ -30,3 +30,4 @@ The diagram below depicts the complete system topology across three planes: **Co
 
 <img alt="FastAPI Qdrant Retrieval Evaluation Pipeline-2026-10-25-060312" src="https://github.com/user-attachments/assets/4d35b856-9ca4-4117-b0f4-6a2678a6ee32" />
 
+# Pulmonary-clinical-decision-support-system
