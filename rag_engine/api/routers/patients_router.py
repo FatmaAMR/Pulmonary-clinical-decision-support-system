@@ -33,6 +33,31 @@ class XrayPredictionUpdate(BaseModel):
     prediction: str
 
 
+class TreatmentEvaluationRequest(BaseModel):
+    proposed_treatment: str
+    weight_kg: Optional[str] = None
+    age: Optional[str] = None
+    clinical_note: Optional[str] = None
+    top_k: int = 4
+
+
+def _build_patient_context_string(patient_record: dict) -> str:
+    parts = [f"Patient ID: {patient_record['patient_id']}"]
+    if patient_record.get("age"):
+        parts.append(f"Age: {patient_record['age']}")
+    if patient_record.get("weight_kg"):
+        parts.append(f"Weight: {patient_record['weight_kg']} kg")
+    if patient_record.get("clinical_note"):
+        parts.append(f"Clinician Notes & Vitals: {patient_record['clinical_note']}")
+    if patient_record.get("last_xray_prediction"):
+        parts.append(f"Chest X-Ray Classifier Output: {patient_record['last_xray_prediction']}")
+    if patient_record.get("proposed_treatment"):
+        parts.append(f"Clinician's Proposed Treatment Regimen: {patient_record['proposed_treatment']}")
+    if patient_record.get("parsed_history_text"):
+        parts.append(f"Parsed Medical History Document:\n{patient_record['parsed_history_text'][:2500]}")
+    return "\n".join(parts)
+
+
 @router.get("")
 def list_all_patients(store: PatientRecordStore = Depends(get_patient_store)):
     return {"patients": store.list_patients()}
@@ -50,17 +75,22 @@ def get_patient_by_id(patient_id: str, store: PatientRecordStore = Depends(get_p
 async def create_or_update_patient(
     patient_id: str = Form(...),
     age: str = Form(""),
+    weight_kg: str = Form(""),
     clinical_note: str = Form(""),
+    proposed_treatment: str = Form(""),
+    evaluate_treatment_now: bool = Form(False),
     last_xray_prediction: Optional[str] = Form(None),
     history_file: Optional[UploadFile] = File(None),
     xray_file: Optional[UploadFile] = File(None),
     store: PatientRecordStore = Depends(get_patient_store),
     pipeline: IngestionPipeline = Depends(get_pipeline),
     retrieval_pipeline: RetrievalPipeline = Depends(get_retrieval_pipeline),
+    rag_pipeline: EndToEndRAGPipeline = Depends(get_rag_pipeline),
 ):
     history_file_id = None
     history_filename = None
     parsed_history_text = None
+    rag_chunks_indexed = 0
 
     if history_file and history_file.filename:
         raw_bytes = await history_file.read()
@@ -71,11 +101,12 @@ async def create_or_update_patient(
                 raw_bytes=raw_bytes,
                 source_name=f"PatientHistory:{patient_id.strip()}",
                 version_date="Clinical-History",
-                source_link=f"/documents/{upload_res['file_id']}/view" if False else "db://patient_history",
+                source_link="db://patient_history",
             )
             history_file_id = upload_res["file_id"]
             chunk_res = pipeline.run_chunking_for_file(history_file_id, force_rechunk=True)
-            if chunk_res["chunk_count"] > 0:
+            rag_chunks_indexed = chunk_res.get("chunk_count", 0)
+            if rag_chunks_indexed > 0:
                 retrieval_pipeline.index_file_chunks(history_file_id)
 
             parsed_docs = pipeline.store.get_parsed_documents_by_file(history_file_id)
@@ -86,14 +117,94 @@ async def create_or_update_patient(
     saved = store.upsert_patient(
         patient_id=patient_id,
         age=age,
+        weight_kg=weight_kg,
         clinical_note=clinical_note,
+        proposed_treatment=proposed_treatment,
         history_file_id=history_file_id,
         history_filename=history_filename,
         parsed_history_text=parsed_history_text,
         last_xray_filename=xray_filename,
         last_xray_prediction=last_xray_prediction,
     )
-    return {"status": "saved", "patient": saved}
+
+    evaluation_sources = []
+    if evaluate_treatment_now and proposed_treatment.strip():
+        eval_res = _run_treatment_evaluation(saved, rag_pipeline, top_k=4)
+        saved = store.upsert_patient(
+            patient_id=patient_id,
+            ai_treatment_evaluation=eval_res["answer"],
+        )
+        evaluation_sources = eval_res["sources_cited"]
+
+    return {
+        "status": "saved",
+        "rag_chunks_indexed": rag_chunks_indexed,
+        "patient": saved,
+        "evaluation_sources": evaluation_sources,
+    }
+
+
+def _run_treatment_evaluation(
+    patient_record: dict,
+    rag_pipeline: EndToEndRAGPipeline,
+    top_k: int = 4,
+) -> dict:
+    profile_text = _build_patient_context_string(patient_record)
+    eval_prompt = (
+        f"PATIENT CLINICAL PROFILE:\n{profile_text}\n\n"
+        f"CLINICIAN'S PROPOSED TREATMENT PLAN:\n{patient_record.get('proposed_treatment', '')}\n\n"
+        "CLINICAL REVIEW REQUEST:\n"
+        "Evaluate the proposed medication and treatment regimen against the pediatric pneumonia clinical guidelines:\n"
+        "1. Appropriateness: Does the drug choice and route (oral vs IV) match the patient's severity, age, clinical notes, and Chest X-ray findings?\n"
+        "2. Dosage Verification: If weight or dosage is provided, verify the mg/kg/day calculation against guideline recommendations.\n"
+        "3. Safety & Monitoring: Highlight any red flags, contraindications, or follow-up recommendations with inline [Source X] citations."
+    )
+    res = rag_pipeline.run(query=eval_prompt, top_k=top_k, mode="hybrid")
+    return {
+        "answer": res.answer,
+        "sources_cited": res.sources_cited,
+        "model_name": res.model_name,
+    }
+
+
+@router.post("/{patient_id}/evaluate-treatment")
+def evaluate_patient_treatment_plan(
+    patient_id: str,
+    req: TreatmentEvaluationRequest,
+    store: PatientRecordStore = Depends(get_patient_store),
+    rag_pipeline: EndToEndRAGPipeline = Depends(get_rag_pipeline),
+):
+    existing = store.get_patient(patient_id)
+    if not existing:
+        existing = store.upsert_patient(
+            patient_id=patient_id,
+            age=req.age or "",
+            weight_kg=req.weight_kg or "",
+            clinical_note=req.clinical_note or "",
+            proposed_treatment=req.proposed_treatment,
+        )
+    else:
+        existing = store.upsert_patient(
+            patient_id=patient_id,
+            age=req.age if req.age is not None else existing.get("age", ""),
+            weight_kg=req.weight_kg if req.weight_kg is not None else existing.get("weight_kg", ""),
+            clinical_note=req.clinical_note if req.clinical_note is not None else existing.get("clinical_note", ""),
+            proposed_treatment=req.proposed_treatment,
+        )
+
+    eval_res = _run_treatment_evaluation(existing, rag_pipeline, top_k=req.top_k)
+    updated_patient = store.upsert_patient(
+        patient_id=patient_id,
+        ai_treatment_evaluation=eval_res["answer"],
+    )
+
+    return {
+        "status": "evaluated",
+        "patient": updated_patient,
+        "evaluation": eval_res["answer"],
+        "sources_cited": eval_res["sources_cited"],
+        "model_name": eval_res["model_name"],
+    }
 
 
 @router.patch("/{patient_id}/xray")
@@ -142,16 +253,7 @@ def clinical_chat_with_patient_context(
     if req.patient_id and req.patient_id.strip():
         patient_record = store.get_patient(req.patient_id.strip())
         if patient_record:
-            parts = [f"Patient ID: {patient_record['patient_id']}"]
-            if patient_record.get("age"):
-                parts.append(f"Age: {patient_record['age']}")
-            if patient_record.get("clinical_note"):
-                parts.append(f"Clinician Notes: {patient_record['clinical_note']}")
-            if patient_record.get("last_xray_prediction"):
-                parts.append(f"Recorded Chest X-Ray Classifier Output: {patient_record['last_xray_prediction']}")
-            if patient_record.get("parsed_history_text"):
-                parts.append(f"Parsed Medical History Document:\n{patient_record['parsed_history_text'][:2500]}")
-            patient_context_block = "\n".join(parts)
+            patient_context_block = _build_patient_context_string(patient_record)
 
     if req.classifier_summary:
         patient_context_block = (
@@ -160,15 +262,14 @@ def clinical_chat_with_patient_context(
 
     clean_msg = req.message.strip()
 
-    # Handle general greetings / capability questions directly without fake citations
     if CONVERSATIONAL_PATTERNS.match(clean_msg) or len(clean_msg) < 4:
         patient_note = ""
         if patient_record:
             patient_note = (
-                f"\n\nI currently have Patient {patient_record['patient_id']} loaded "
-                f"(Age: {patient_record.get('age') or 'N/A'}, "
-                f"X-Ray Result: {patient_record.get('last_xray_prediction') or 'Not analyzed yet'}). "
-                "You can ask me to correlate their history and X-ray findings with pediatric pneumonia guidelines."
+                f"\n\nActive Patient {patient_record['patient_id']} is connected "
+                f"(Age: {patient_record.get('age') or 'N/A'}, Weight: {patient_record.get('weight_kg') or 'N/A'} kg, "
+                f"X-Ray: {patient_record.get('last_xray_prediction') or 'Not analyzed yet'}). "
+                "You can ask me to review their proposed treatment plan or correlate their findings with clinical guidelines."
             )
         return {
             "query": req.message,
@@ -176,8 +277,8 @@ def clinical_chat_with_patient_context(
                 "Hello! I am CHESTWISE, your pediatric pulmonary clinical decision support assistant. "
                 "I can help you:\n"
                 "• Analyze pediatric chest X-rays using the connected Pneumonia Classifier.\n"
-                "• Retrieve evidence-based pediatric pneumonia guidelines with clickable source links.\n"
-                "• Review a patient's parsed medical history and correlate it with clinical protocols."
+                "• Evaluate proposed antibiotic regimens and weight-based dosages against clinical guidelines.\n"
+                "• Review a patient's parsed medical history and correlate it with verified protocols."
                 f"{patient_note}"
             ),
             "sources_cited": [],
@@ -188,6 +289,8 @@ def clinical_chat_with_patient_context(
             "patient_summary": {
                 "patient_id": patient_record["patient_id"],
                 "age": patient_record.get("age", ""),
+                "weight_kg": patient_record.get("weight_kg", ""),
+                "proposed_treatment": patient_record.get("proposed_treatment", ""),
                 "history_filename": patient_record.get("history_filename", ""),
                 "last_xray_prediction": patient_record.get("last_xray_prediction", ""),
             } if patient_record else None,
@@ -217,6 +320,8 @@ def clinical_chat_with_patient_context(
         "patient_summary": {
             "patient_id": patient_record["patient_id"],
             "age": patient_record.get("age", ""),
+            "weight_kg": patient_record.get("weight_kg", ""),
+            "proposed_treatment": patient_record.get("proposed_treatment", ""),
             "history_filename": patient_record.get("history_filename", ""),
             "last_xray_prediction": patient_record.get("last_xray_prediction", ""),
         } if patient_record else None,
