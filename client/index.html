@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pulmonary Intelligence — Clinical Workspace</title>
+<style>
+:root{
+  --bg:#dce2f5; --bg2:#cbd4ee; --ink:#171a2a; --muted:#6f7897;
+  --blue:#3478f6; --blue2:#e7efff; --white:rgba(255,255,255,.78);
+  --line:rgba(255,255,255,.9); --shadow:0 22px 70px rgba(66,82,140,.12);
+  --radius:25px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(ellipse at 12% 12%,#e9edfb 0,transparent 38%),radial-gradient(ellipse at 86% 44%,#c4cfee 0,transparent 38%),linear-gradient(135deg,#d7def2,#e3e7f7 55%,#d1d9f0);min-height:100vh}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+a{color:inherit;text-decoration:none}
+.wrap{width:min(1240px,calc(100% - 52px));margin:auto}
+.topbar{height:88px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:-.04em}
+.brand-mark{width:38px;height:38px;border:2px solid #20263a;border-radius:14px;display:grid;place-items:center;font-size:20px}
+.brand small{display:block;color:var(--muted);font-size:11px;letter-spacing:.02em;font-weight:500;margin-top:2px}
+.nav{display:flex;align-items:center;gap:8px}
+.nav button{border:0;background:transparent;color:#3e4561;padding:12px 16px;border-radius:99px;font-size:12px;font-weight:750;letter-spacing:.07em;text-transform:uppercase}
+.nav button:hover,.nav button.active{background:rgba(255,255,255,.7)}
+.nav .nav-cta{background:#202131;color:white;padding:14px 22px;margin-left:8px}
+.nav .nav-cta:hover{background:#34384f}
+.menu-toggle{display:none;background:white;border:0;border-radius:50%;width:42px;height:42px}
+.page{display:none;animation:fade .25s ease}.page.active{display:block}
+@keyframes fade{from{opacity:.3;transform:translateY(5px)}to{opacity:1;transform:none}}
+.hero{text-align:center;padding:52px 0 28px}
+.eyebrow{font-size:11px;font-weight:800;letter-spacing:.17em;text-transform:uppercase;color:#64739d}
+h1{font-size:clamp(38px,5.6vw,68px);line-height:1.02;letter-spacing:-.065em;font-weight:550;margin:22px auto 18px;max-width:900px}
+.hero p{max-width:650px;margin:0 auto;color:#697391;line-height:1.8;font-size:15px}
+.pill-button{border:0;border-radius:99px;padding:16px 25px;background:#1b1d2c;color:#fff;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 10px 25px #adb9dd80}
+.hero .pill-button{margin-top:25px}
+.hero-art{position:relative;margin:28px auto 70px;border:1px solid rgba(255,255,255,.9);border-radius:30px;min-height:350px;padding:26px 30px 32px;background:linear-gradient(125deg,rgba(255,255,255,.83),rgba(255,255,255,.43));box-shadow:var(--shadow);overflow:hidden}
+.hero-art:before,.hero-art:after{content:"";position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none}
+.hero-art:before{width:280px;height:280px;left:-85px;top:65px;background:radial-gradient(circle,#9aaddd88,transparent 70%)}
+.hero-art:after{width:300px;height:300px;right:-70px;bottom:-90px;background:radial-gradient(circle,#a9b7e988,transparent 70%)}
+.art-top{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#535d7d}
+.art-links{display:flex;gap:26px;font-weight:700}
+.blue-btn{background:var(--blue);color:#fff;border:0;border-radius:99px;padding:12px 22px;font-size:11px;font-weight:800;box-shadow:0 6px 16px #3478f64d}
+.hero-word{position:relative;z-index:1;text-align:center;font-size:clamp(48px,10vw,120px);letter-spacing:-.075em;font-weight:500;margin:48px 0 14px}
+.art-caption{position:relative;z-index:1;text-align:center;color:#6b7594;font-size:13px}
+.float-card{position:absolute;z-index:2;left:8%;bottom:48px;width:145px;text-align:left;padding:17px;border-radius:18px;background:rgba(255,255,255,.82);box-shadow:0 12px 35px #7786b326;font-size:12px}
+.float-card strong{display:block;margin-bottom:7px}
+.float-card span{color:var(--muted);font-size:11px;line-height:1.5}
+.float-card.right{left:auto;right:7%;bottom:55px;width:195px}
+.mini-chat{position:relative;z-index:2;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.9);border:1px solid white;border-radius:99px;padding:10px 12px 10px 20px;width:min(460px,90%);margin:35px auto 0;box-shadow:0 10px 30px #7482ac25}
+.mini-chat span{font-size:12px;color:#7c85a1;flex:1;text-align:left}
+.mini-chat button{width:40px;height:40px;border-radius:50%;border:0;background:var(--blue);color:white;font-size:20px}
+.section-title{text-align:center;font-size:30px;letter-spacing:-.045em;font-weight:550;margin:0 0 30px}
+.section-sub{text-align:center;color:var(--muted);font-size:14px;margin:-18px auto 30px;line-height:1.7}
+.services{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:65px}
+.service{background:rgba(255,255,255,.84);border:1px solid white;border-radius:19px;padding:22px;min-height:170px;box-shadow:0 8px 24px #7e8bb21a}
+.service .symbol{display:grid;place-items:center;width:28px;height:28px;border-radius:10px;background:#eaf0ff;color:#3467be;font-weight:800;margin-bottom:18px}
+.service h3{font-size:14px;margin:0 0 9px;letter-spacing:-.02em}
+.service p{font-size:12px;line-height:1.65;color:#7a829e;margin:0}
+.footer{border-top:1px solid rgba(255,255,255,.8);padding:30px 0 22px;display:grid;grid-template-columns:1.2fr 1fr 1fr 1.2fr;gap:25px;color:#66708f;margin-top:12px}
+.footer h3{font-size:15px;color:#24283d;margin:0 0 15px}
+.footer p,.footer a{font-size:11px;line-height:1.9;display:block}
+.footer .big{font-size:23px;color:#20243a;letter-spacing:-.04em}
+.footer-bottom{border-top:1px solid #ffffff9c;padding:18px 0 25px;display:flex;justify-content:space-between;color:#727b99;font-size:11px}
+.workspace{padding:22px 0 60px}
+.page-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin:22px 0 25px}
+.page-heading h1{font-size:clamp(32px,4vw,48px);margin:10px 0 8px;max-width:none}
+.page-heading p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+.surface{background:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.95);border-radius:var(--radius);box-shadow:var(--shadow)}
+.chat-layout{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:650px;overflow:hidden}
+.side-panel{padding:23px;border-right:1px solid #d9e0f2;background:rgba(250,251,255,.52)}
+.side-panel h3{font-size:14px;margin:3px 0 14px}
+.field-label{display:block;font-size:11px;font-weight:750;color:#697391;margin:14px 0 7px}
+input,textarea,select{width:100%;border:1px solid #dce3f5;background:rgba(255,255,255,.8);border-radius:12px;padding:12px 13px;color:var(--ink);outline:none}
+input:focus,textarea:focus,select:focus{border-color:#7ba5ff;box-shadow:0 0 0 3px #3478f61a}
+.upload-box{border:1px dashed #aebfe9;border-radius:16px;padding:20px 14px;text-align:center;background:#f8faff;cursor:pointer;transition:.2s;display:block}
+.upload-box:hover{border-color:var(--blue);background:#f0f5ff}
+.upload-box .cloud{font-size:26px;color:#3677e8;margin-bottom:6px}
+.upload-box strong{font-size:12px;display:block}
+.upload-box small{display:block;color:var(--muted);font-size:10px;margin-top:5px}
+input[type=file]{display:none}
+.file-chip{display:flex;align-items:center;gap:10px;padding:11px 0;font-size:11px;color:#4e5879;overflow-wrap:anywhere}
+.file-thumb{width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:#e8efff;font-size:18px;flex-shrink:0}
+.file-chip button{margin-left:auto;border:0;background:transparent;color:#8892b0}
+.chat-main{display:flex;flex-direction:column;min-width:0;min-height:650px}
+.chat-head{display:flex;justify-content:space-between;align-items:center;padding:20px 25px;border-bottom:1px solid #e0e5f3}
+.chat-head strong{font-size:14px}.online{font-size:10px;color:#4c8c76;margin-top:5px}.online:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#4fb78b;margin-right:6px}
+.chat-scroll{padding:26px;display:flex;flex-direction:column;gap:20px;flex:1;max-height:570px;overflow:auto}
+.message{max-width:min(760px,92%);display:flex;gap:11px;align-items:flex-start}
+.message.user{align-self:flex-end;flex-direction:row-reverse}
+.avatar{width:32px;height:32px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;background:#e5edff;color:#3566bd;font-size:14px;font-weight:800}
+.message.user .avatar{background:#202235;color:white}
+.bubble{border:1px solid #e2e8f6;background:rgba(255,255,255,.88);border-radius:5px 18px 18px 18px;padding:17px 18px;font-size:13px;line-height:1.75;color:#3e496a;overflow-wrap:anywhere}
+.message.user .bubble{background:#e6efff;border-color:#d8e5ff;border-radius:18px 5px 18px 18px;color:#253b6d;white-space:pre-wrap}
+.bubble h4{font-size:13px;margin:0 0 8px;color:#202a49}
+.notice{border-left:3px solid #91a9e9;background:#f3f6ff;padding:10px 12px;margin-top:12px;font-size:11px;line-height:1.6;color:#6b7595}
+.cite-badge{display:inline-block;background:#e5edff;color:#2554b0;font-weight:750;font-size:11px;padding:1px 7px;border-radius:99px;margin:0 2px}
+.sources-box{margin-top:14px;border-top:1px solid #e2e8f6;padding-top:10px}
+.sources-title{font-size:11px;font-weight:800;color:#4a5678;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em}
+.source-card{background:#f6f9ff;border:1px solid #dde6fa;border-radius:10px;padding:9px 11px;margin-bottom:7px;font-size:11px;line-height:1.5}
+.source-card strong{color:#234078}
+.patient-banner{background:#eef5ff;border:1px solid #cfe0ff;border-radius:12px;padding:10px 12px;font-size:11px;color:#2c477d;margin-top:10px;display:none}
+.patient-banner.show{display:block}
+.composer{padding:17px 22px;border-top:1px solid #e0e5f3}
+.composer-inner{display:flex;align-items:flex-end;gap:10px;background:rgba(255,255,255,.9);border:1px solid #dce4f7;border-radius:17px;padding:8px}
+.composer textarea{border:0;background:transparent;resize:vertical;min-height:43px;max-height:130px;box-shadow:none;padding:10px}
+.attach-btn{border:0;background:transparent;color:#7483a9;font-size:20px;padding:8px}
+.send-btn{width:43px;height:43px;border:0;border-radius:50%;background:var(--blue);color:white;font-size:20px;flex-shrink:0}
+.helper-text{font-size:10px;color:#8a93ae;margin:9px 5px 0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{padding:24px}
+.panel h3{font-size:16px;margin:0 0 7px}
+.panel .desc{font-size:12px;color:var(--muted);line-height:1.65;margin:0 0 20px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.form-grid .full{grid-column:1/-1}
+.primary{border:0;background:#202235;color:white;border-radius:99px;padding:13px 20px;font-size:11px;font-weight:800;letter-spacing:.05em}
+.secondary{border:1px solid #d4def4;background:#fff;color:#3e5d9e;border-radius:99px;padding:12px 18px;font-size:11px;font-weight:800}
+.danger-btn{border:1px solid #f5c6cb;background:#fff5f5;color:#b02a37;border-radius:99px;padding:8px 12px;font-size:10px;font-weight:800}
+.action-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:17px}
+.status{display:none;border-radius:12px;padding:12px 14px;background:#edf7f2;color:#337b61;font-size:12px;margin-top:14px;line-height:1.5}
+.status.show{display:block}
+.patient-list{margin-top:18px}
+.patient-row{display:flex;align-items:center;gap:10px;border-top:1px solid #e2e7f4;padding:14px 0;flex-wrap:wrap}
+.patient-initial{width:38px;height:38px;border-radius:13px;background:#e8eeff;color:#4169b2;display:grid;place-items:center;font-weight:800}
+.patient-meta{flex:1;min-width:160px}.patient-meta strong{font-size:12px;display:block}.patient-meta small{font-size:10px;color:var(--muted);display:block;margin-top:4px}
+.patient-row button{border:0;background:#edf2ff;color:#4168b1;border-radius:99px;padding:8px 12px;font-size:10px;font-weight:800}
+.patient-detail-card{background:#f7faff;border:1px solid #dbe6ff;border-radius:16px;padding:16px;margin-top:14px;font-size:12px;line-height:1.65;display:none}
+.patient-detail-card.show{display:block}
+.empty{font-size:12px;color:#8a93ae;padding:16px 0}
+.toast{position:fixed;bottom:20px;left:50%;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#202235;color:white;padding:12px 18px;border-radius:99px;font-size:12px;transition:.25s;z-index:99;box-shadow:var(--shadow)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:900px){.services{grid-template-columns:repeat(2,1fr)}.chat-layout{grid-template-columns:240px 1fr}.footer{grid-template-columns:repeat(2,1fr)}.float-card.right{right:3%}.float-card{left:3%}}
+@media(max-width:680px){.wrap{width:min(100% - 28px,1240px)}.topbar{height:72px}.menu-toggle{display:block}.nav{display:none;position:absolute;z-index:20;top:65px;right:14px;left:14px;background:#f6f8ff;padding:12px;border-radius:20px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav.open{display:flex}.nav button{text-align:left}.nav .nav-cta{margin:4px 0}.hero{padding-top:32px}.hero-art{padding:20px 16px;min-height:300px;margin-bottom:48px}.art-links{display:none}.hero-word{margin:65px 0 12px}.float-card{bottom:25px;width:120px;padding:12px}.float-card.right{width:150px;bottom:27px}.services{gap:10px}.service{padding:16px;min-height:160px}.footer{grid-template-columns:1fr 1fr;gap:18px}.footer-bottom{gap:12px;flex-wrap:wrap}.page-heading{align-items:flex-start;flex-direction:column}.chat-layout{grid-template-columns:1fr}.side-panel{border-right:0;border-bottom:1px solid #d9e0f2}.chat-main{min-height:570px}.chat-scroll{padding:17px;max-height:520px}.chat-head{padding:17px}.message{max-width:100%}.two-col{grid-template-columns:1fr}.panel{padding:19px}.workspace{padding-top:8px}.form-grid{grid-template-columns:1fr}.form-grid .full{grid-column:auto}}
+</style>
+</head>
+<body>
+<header class="wrap topbar">
+  <a href="#" class="brand" data-page="home" aria-label="Home">
+    <span class="brand-mark">◉</span><span>CHESTWISE<small>AI · Pulmonary imaging support</small></span>
+  </a>
+  <button class="menu-toggle" id="menuToggle" aria-label="Open navigation">☰</button>
+  <nav class="nav" id="nav">
+    <button class="active" data-page="home">Overview</button>
+    <button data-page="chat">Clinical chat</button>
+    <button data-page="records">Patient files</button>
+    <button class="nav-cta" data-page="chat">Open workspace ↗</button>
+  </nav>
+</header>
+
+<main>
+<section class="page active" id="page-home">
+  <div class="wrap">
+    <div class="hero">
+      <div class="eyebrow">Clinical intelligence · Built for clinicians</div>
+      <h1>Clearer insights.<br>More informed care.</h1>
+      <p>A focused workspace combining chest X-ray classification and evidence-grounded medical guidance to support clinicians reviewing pediatric pneumonia cases.</p>
+      <button class="pill-button" data-page="chat">Explore the workspace&nbsp; ↗</button>
+    </div>
+    <div class="hero-art">
+      <div class="art-top"><strong>◉ CHESTWISE</strong><div class="art-links"><span>IMAGING</span><span>CLINICAL CHAT</span><span>RECORDS</span></div><button class="blue-btn" data-page="records">PATIENT FILES ↗</button></div>
+      <div class="hero-word">Chest intelligence</div>
+      <div class="art-caption">Image classification · Medical knowledge retrieval · Clinician in control</div>
+      <div class="float-card"><strong>01 / Image analysis</strong><span>Upload a chest X-ray and review the model output.</span></div>
+      <div class="float-card right"><strong>02 / Evidence support</strong><span>Ask focused questions about pneumonia guidelines and sources.</span></div>
+      <div class="mini-chat"><span>Ask about pediatric pneumonia guidelines…</span><button data-page="chat" aria-label="Open chat">↗</button></div>
+    </div>
+    <h2 class="section-title">Designed around the clinical workflow</h2>
+    <p class="section-sub">Three focused tools. One simple workspace. Clinical decisions stay with the clinician.</p>
+    <div class="services">
+      <article class="service"><div class="symbol">↗</div><h3>Chest X-ray analysis</h3><p>Upload an image and display the connected classifier's result: Normal or Pneumonia.</p></article>
+      <article class="service"><div class="symbol">⌕</div><h3>Guideline-focused chat</h3><p>Ask questions about pediatric pneumonia and retrieve relevant information from your knowledge base.</p></article>
+      <article class="service"><div class="symbol">▤</div><h3>Patient-linked files</h3><p>Organize optional patient history and X-ray files under a patient ID in PostgreSQL/SQLite.</p></article>
+      <article class="service"><div class="symbol">＋</div><h3>Designed to extend</h3><p>Start with pediatric pneumonia, with room to expand the system and its knowledge sources later.</p></article>
+    </div>
+  </div>
+  <footer class="wrap">
+    <div class="footer"><div><h3>CHESTWISE</h3><p>A research prototype for AI-assisted pediatric chest X-ray analysis and clinical information retrieval.</p></div><div><h3>Workspace</h3><a href="#" data-page="chat">Clinical chat</a><a href="#" data-page="records">Patient files</a><a href="#" data-page="home">Overview</a></div><div><h3>Current focus</h3><p>Pediatric chest X-rays</p><p>Pneumonia classification</p><p>Evidence-grounded guidance</p></div><div><h3>Important</h3><p class="big">Clinician first.</p><p>Outputs support review and do not replace clinical judgment.</p></div></div>
+    <div class="footer-bottom"><span>© 2026 CHESTWISE · Clinical AI prototype</span><span>Privacy-minded · Evidence-aware · Extensible</span></div>
+  </footer>
+</section>
+
+<section class="page" id="page-chat">
+ <div class="wrap workspace">
+  <div class="page-heading"><div><div class="eyebrow">Clinical workspace / 01</div><h1>Clinical chat</h1><p>Ask about pediatric pneumonia guidelines, link a Patient ID, or analyze a chest X-ray.</p></div><button class="secondary" data-page="records">Manage patient files ↗</button></div>
+  <div class="surface chat-layout">
+   <aside class="side-panel">
+    <h3>Patient & Image Context</h3><p style="font-size:11px;color:var(--muted);line-height:1.6;margin-top:-5px">Enter a Patient ID to automatically include their parsed medical history and X-ray findings.</p>
+    <label class="field-label" for="chatPatientId">Patient ID (optional)</label>
+    <div style="display:flex;gap:6px">
+      <input id="chatPatientId" placeholder="e.g. PT-00124" />
+      <button class="secondary" id="loadPatientInChat" type="button" style="padding:0 12px">Load</button>
+    </div>
+    <div id="activePatientBanner" class="patient-banner"></div>
+
+    <label class="field-label">Upload chest X-ray</label>
+    <label class="upload-box" for="chatXray"><div class="cloud">⇧</div><strong>Choose an X-ray image</strong><small>PNG, JPG or JPEG · Classifier API</small></label><input type="file" id="chatXray" accept="image/png,image/jpeg,.png,.jpg,.jpeg" />
+    <div id="chatFileInfo" class="file-chip" style="display:none"><div class="file-thumb">▧</div><span id="chatFileName"></span><button id="clearChatFile" aria-label="Remove image">×</button></div>
+
+    <div style="height:1px;background:#e0e6f4;margin:18px 0"></div>
+    <h3>Upload Medical Guideline (RAG)</h3>
+    <label class="upload-box" for="guidelineFile" style="padding:14px 10px"><div class="cloud" style="font-size:20px">▤</div><strong>Index New Guideline PDF/MD</strong><small>Auto-chunks & indexes into Vector DB</small></label>
+    <input type="file" id="guidelineFile" accept=".pdf,.md,.txt,.json" />
+
+    <div style="height:1px;background:#e0e6f4;margin:18px 0"></div>
+    <h3>Suggested questions</h3>
+    <button class="secondary suggestion" style="width:100%;margin:5px 0;text-align:left" data-prompt="Summarize key considerations in pediatric pneumonia guidelines.">Pneumonia guidelines</button>
+    <button class="secondary suggestion" style="width:100%;margin:5px 0;text-align:left" data-prompt="Based on this patient's history and X-ray findings, what guideline recommendations apply?">Correlate patient & guidelines</button>
+    <button class="secondary suggestion" style="width:100%;margin:5px 0;text-align:left" data-prompt="What clinical severity signs should a clinician check alongside a chest X-ray?">Clinical severity signs</button>
+   </aside>
+   <div class="chat-main">
+    <div class="chat-head"><div><strong>Pneumonia clinical knowledge & CDSS</strong><div class="online">RAG + Classifier Connected</div></div><button class="secondary" id="newChat">＋ New chat</button></div>
+    <div class="chat-scroll" id="messages">
+     <div class="message"><div class="avatar">C</div><div class="bubble"><h4>Welcome to the CHESTWISE Clinical Workspace</h4>Attach a pediatric chest X-ray to run the Pneumonia Classifier, enter a <strong>Patient ID</strong> to pull parsed patient history from the database, and ask clinical questions grounded in your medical guidelines with inline <code>[Source X]</code> citations.<div class="notice">Responses support clinical review and must be verified against official guidelines and the patient's full examination.</div></div></div>
+    </div>
+    <div class="composer"><div class="composer-inner"><button class="attach-btn" id="attachFromChat" title="Attach X-ray">⌁</button><textarea id="chatInput" rows="1" placeholder="Ask about pediatric pneumonia guidelines or patient case…"></textarea><button class="send-btn" id="sendChat" aria-label="Send message">➤</button></div><div class="helper-text">AI-generated information may be incomplete. Verify clinical guidance before use.</div></div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<section class="page" id="page-records">
+ <div class="wrap workspace">
+  <div class="page-heading"><div><div class="eyebrow">Clinical workspace / 02</div><h1>Patient Database & History Parser</h1><p>Manage patient records in the database, parse history documents via RAG tools, and link X-ray predictions.</p></div><button class="secondary" data-page="chat">Go to clinical chat ↗</button></div>
+  <div class="two-col">
+   <section class="surface panel">
+    <h3>Create or update a patient record</h3><p class="desc">Uploading a patient history file automatically parses, normalizes, and indexes it via the RAG pipeline.</p>
+    <form id="patientForm">
+     <div class="form-grid">
+      <div><label class="field-label" for="patientId">Patient ID *</label><input id="patientId" required placeholder="e.g. PT-00124" /></div>
+      <div><label class="field-label" for="patientAge">Age (optional)</label><input id="patientAge" placeholder="e.g. 6 years" /></div>
+      <div class="full"><label class="field-label" for="patientNote">Clinical note / examination summary</label><textarea id="patientNote" rows="3" placeholder="SpO2, fever duration, auscultation findings…"></textarea></div>
+      <div class="full"><label class="field-label">Patient history document (Parsed via RAG)</label><label class="upload-box" for="historyFile"><div class="cloud">▤</div><strong>Choose a history document</strong><small>PDF, MD, TXT or JSON · Parsed & stored in DB</small></label><input id="historyFile" type="file" accept=".pdf,.txt,.md,.json" /><div id="historyInfo" class="file-chip full" style="display:none"><div class="file-thumb">▤</div><span id="historyName"></span><button type="button" id="clearHistory" aria-label="Remove history">×</button></div></div>
+      <div class="full"><label class="field-label">Chest X-ray (Runs Classifier & links result)</label><label class="upload-box" for="recordXray"><div class="cloud">⇧</div><strong>Choose a chest X-ray</strong><small>PNG, JPG or JPEG · Runs /classifiers/predict</small></label><input id="recordXray" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" /><div id="recordXrayInfo" class="file-chip full" style="display:none"><div class="file-thumb">▧</div><span id="recordXrayName"></span><button type="button" id="clearRecordXray" aria-label="Remove X-ray">×</button></div></div>
+     </div>
+     <div class="action-row"><button class="primary" type="submit" id="savePatientBtn">Save to Database</button><button class="secondary" type="reset" id="resetPatient">Clear form</button></div>
+     <div class="status" id="saveStatus" role="status"></div>
+    </form>
+   </section>
+
+   <section class="surface panel">
+    <h3>Lookup & Manage Patients in Database</h3>
+    <p class="desc">Search a patient by ID to inspect their parsed history and classifier results, or manage existing records.</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input id="lookupPatientInput" placeholder="Search by Patient ID (e.g. PT-00124)…" />
+      <button class="primary" type="button" id="lookupPatientBtn">Search ID</button>
+    </div>
+    <div id="patientDetailCard" class="patient-detail-card"></div>
+    <div id="patientList" class="patient-list"><div class="empty">Loading patients from database…</div></div>
+   </section>
+  </div>
+ </div>
+</section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = {
+  ragBase: "http://localhost:8000",
+  chat: "http://localhost:8000/patients/clinical-chat",
+  patients: "http://localhost:8000/patients",
+  documents: "http://localhost:8000/documents",
+  classify: "http://localhost:8000/classifiers/predict",
+  classifyFallback: "http://localhost:8000/classifiers/predict"
+};
+
+const $ = (s, root=document) => root.querySelector(s);
+const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+const toast = (msg) => { const el=$("#toast"); el.textContent=msg; el.classList.add("show"); setTimeout(()=>el.classList.remove("show"),2800); };
+
+function go(page){
+  $$(".page").forEach(p=>p.classList.toggle("active",p.id==="page-"+page));
+  $$("#nav [data-page]").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+  $("#nav").classList.remove("open");
+  if(page==="records") fetchPatientsFromDB();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+$$("[data-page]").forEach(el=>el.addEventListener("click",e=>{e.preventDefault();go(el.dataset.page)}));
+$("#menuToggle").addEventListener("click",()=>$("#nav").classList.toggle("open"));
+
+function escapeHtml(str){
+  return String(str||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function formatClinicalMarkdown(text, sources=[]){
+  const sourceMap = {};
+  if(Array.isArray(sources)){
+    sources.forEach(s => {
+      const m = String(s.source_ref || "").match(/\d+/);
+      if(m) sourceMap[m[0]] = s;
+    });
+  }
+
+  let cleanText = String(text || "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .trim();
+
+  let html = escapeHtml(cleanText);
+
+  html = html.replace(/\[Source\s+(\d+)\]/gi, (match, num) => {
+    const src = sourceMap[num];
+    if(src && src.source_link){
+      const href = src.source_link.startsWith("http") ? src.source_link : (API.ragBase + src.source_link);
+      return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="cite-badge" style="text-decoration:underline;cursor:pointer" title="Open ${escapeHtml(src.source_name || "Source")}">[Source ${num} ↗]</a>`;
+    }
+    return `<span class="cite-badge">[Source ${num}]</span>`;
+  });
+
+  html = html.replace(/\n/g, "<br>");
+
+  if(Array.isArray(sources) && sources.length > 0){
+    const cards = sources.map(s => {
+      const href = (s.source_link || "").startsWith("http")
+        ? s.source_link
+        : (API.ragBase + (s.source_link || ""));
+      const cleanSnippet = String(s.snippet || "").replace(/^#{1,6}\s*/gm, "").replace(/\*\*(.+?)\*\*/g, "$1");
+      return `
+      <div class="source-card">
+        <a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="color:#234078;font-weight:800;text-decoration:underline">
+          ${escapeHtml(s.source_ref)} — ${escapeHtml(s.source_name || "Clinical Guideline")} (${escapeHtml(s.section || "Section")}) ↗
+        </a>
+        <span style="float:right;color:#3478f6;font-weight:700">Score: ${Number(s.rerank_score||0).toFixed(2)}</span><br>
+        <span style="color:#5c6684">${escapeHtml(cleanSnippet)}</span>
+      </div>`;
+    }).join("");
+    html += `<div class="sources-box"><div class="sources-title">Verified Reference Sources (Click to open document)</div>${cards}</div>`;
+  }
+  return html;
+}
+
+async function callClassifier(file, patientId){
+  const form = new FormData();
+  form.append("file", file);
+  if(patientId) form.append("patient_id", patientId);
+
+  let res;
+  try {
+    res = await fetch(API.classify, { method: "POST", body: form });
+  } catch (_) {
+    res = await fetch(API.classifyFallback, { method: "POST", body: form });
+  }
+  if(!res.ok) throw new Error("Classifier API returned " + res.status);
+  const data = await res.json();
+  if(typeof data === "string") return data;
+  if(data.label || data.prediction || data.class) {
+    const lbl = data.label ?? data.prediction ?? data.class;
+    const conf = data.confidence ?? data.probability ?? data.score;
+    return conf !== undefined ? `${lbl} (Confidence: ${(Number(conf)*100).toFixed(1)}%)` : String(lbl);
+  }
+  return JSON.stringify(data);
+}
+
+let chatImage=null;
+let lastClassifierSummary=null;
+
+$("#chatXray").addEventListener("change",e=>{
+  chatImage=e.target.files[0]||null;
+  $("#chatFileInfo").style.display=chatImage?"flex":"none";
+  $("#chatFileName").textContent=chatImage?chatImage.name:"";
+});
+$("#attachFromChat").addEventListener("click",()=>$("#chatXray").click());
+$("#clearChatFile").addEventListener("click",()=>{chatImage=null;$("#chatXray").value="";$("#chatFileInfo").style.display="none"});
+$$(".suggestion").forEach(b=>b.addEventListener("click",()=>{$("#chatInput").value=b.dataset.prompt;$("#chatInput").focus()}));
+
+$("#guidelineFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0];
+  if(!f) return;
+  toast("Uploading and indexing guideline into RAG...");
+  const form = new FormData();
+  form.append("file", f);
+  form.append("source_name", f.name);
+  form.append("auto_chunk", "true");
+  form.append("auto_index", "true");
+  try {
+    const res = await fetch(API.documents, { method: "POST", body: form });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || "Upload failed");
+    toast(`Indexed ${data.indexing?.indexed_chunks || data.chunking?.chunk_count || 0} chunks from ${f.name}!`);
+  } catch(err) {
+    toast("Guideline upload error: " + err.message);
+  }
+  e.target.value = "";
+});
+
+async function loadPatientBanner(pid){
+  const banner = $("#activePatientBanner");
+  if(!pid){ banner.classList.remove("show"); return; }
+  try {
+    const res = await fetch(`${API.patients}/${encodeURIComponent(pid)}`);
+    if(!res.ok){
+      banner.innerHTML = `No saved record found for <strong>${escapeHtml(pid)}</strong> yet.`;
+      banner.classList.add("show");
+      return;
+    }
+    const p = await res.json();
+    banner.innerHTML = `
+      <strong>Active Patient: ${escapeHtml(p.patient_id)}</strong> (${escapeHtml(p.age || "Age N/A")})<br>
+      • History Doc: ${escapeHtml(p.history_filename || "None")}<br>
+      • Last X-Ray Classifier: <strong>${escapeHtml(p.last_xray_prediction || "Not run yet")}</strong>
+    `;
+    banner.classList.add("show");
+  } catch(err) {
+    banner.classList.remove("show");
+  }
+}
+
+$("#loadPatientInChat").addEventListener("click", () => {
+  const pid = $("#chatPatientId").value.trim();
+  if(!pid){ toast("Enter a Patient ID first."); return; }
+  loadPatientBanner(pid);
+  toast(`Loaded context for ${pid}`);
+});
+
+function addMessage(text,who="assistant",isHtml=false){
+  const row=document.createElement("div");row.className="message "+(who==="user"?"user":"");
+  const avatar=document.createElement("div");avatar.className="avatar";avatar.textContent=who==="user"?"D":"C";
+  const bubble=document.createElement("div");bubble.className="bubble";
+  if(isHtml) bubble.innerHTML=text; else bubble.textContent=text;
+  row.append(avatar,bubble);$("#messages").append(row);$("#messages").scrollTop=$("#messages").scrollHeight;return bubble;
+}
+
+async function sendChat(){
+  const message=$("#chatInput").value.trim();
+  if(!message&&!chatImage){toast("Write a question or attach a chest X-ray first.");return}
+  $("#chatInput").value="";
+  const patientId=$("#chatPatientId").value.trim();
+  if(message)addMessage(message,"user");
+  if(chatImage)addMessage(`Attached X-ray: ${chatImage.name}${patientId ? " (Patient: "+patientId+")" : ""}`,"user");
+
+  if(chatImage){
+    const currentFile = chatImage;
+    chatImage=null;$("#chatXray").value="";$("#chatFileInfo").style.display="none";
+    const wait=addMessage("Running Pneumonia Classifier on attached chest X-ray…");
+    try{
+      const predSummary = await callClassifier(currentFile, patientId);
+      lastClassifierSummary = predSummary;
+      wait.innerHTML = `
+        <h4>Chest X-Ray Classifier Result</h4>
+        <strong>Prediction:</strong> <span class="cite-badge">${escapeHtml(predSummary)}</span>
+        ${patientId ? `<br><small style="color:#4c8c76">✓ Linked to Patient ID: ${escapeHtml(patientId)}</small>` : ""}
+        <div class="notice">Classifier output is for clinical decision support only. Correlate with patient history and guidelines below.</div>
+      `;
+      if(patientId){
+        await fetch(`${API.patients}/${encodeURIComponent(patientId)}/xray`, {
+          method: "PATCH",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ filename: currentFile.name, prediction: predSummary })
+        });
+        loadPatientBanner(patientId);
+      }
+    }catch(err){
+      wait.textContent="Could not reach the classifier API (/classifiers/predict): "+err.message;
+    }
+  }
+
+  if(message){
+    const wait=addMessage("Retrieving patient history & matching clinical guidelines…");
+    try{
+      const res=await fetch(API.chat,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          message,
+          patient_id: patientId || null,
+          top_k: 4,
+          mode: "hybrid",
+          classifier_summary: lastClassifierSummary
+        })
+      });
+      if(!res.ok)throw new Error("Clinical RAG API returned "+res.status);
+      const data=await res.json();
+      let headerBadge = "";
+      if(data.patient_context_used && data.patient_summary){
+        headerBadge = `<div style="font-size:11px;color:#2c58a0;margin-bottom:8px;font-weight:700">✓ Grounded in Patient Record: ${escapeHtml(data.patient_summary.patient_id)} ${data.patient_summary.last_xray_prediction ? " | X-Ray: "+escapeHtml(data.patient_summary.last_xray_prediction) : ""}</div>`;
+      }
+      wait.innerHTML = headerBadge + formatClinicalMarkdown(data.answer || "No response generated.", data.sources_cited || []);
+    }catch(err){
+      wait.textContent="Could not reach the RAG API: "+err.message;
+    }
+  }
+}
+
+$("#sendChat").addEventListener("click",sendChat);
+$("#chatInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}});
+$("#newChat").addEventListener("click",()=>{
+  lastClassifierSummary=null;
+  $("#messages").innerHTML='<div class="message"><div class="avatar">C</div><div class="bubble"><h4>New conversation</h4>Ask about pediatric pneumonia guidance, enter a Patient ID, or attach a chest X-ray for classification.</div></div>';
+  toast("Started a new chat.");
+});
+
+let historyDoc=null,recordImage=null;
+function bindFile(inputId,infoId,nameId,clearId,setter){
+  $("#"+inputId).addEventListener("change",e=>{setter(e.target.files[0]||null);const f=e.target.files[0];$("#"+infoId).style.display=f?"flex":"none";$("#"+nameId).textContent=f?f.name:""});
+  $("#"+clearId).addEventListener("click",()=>{setter(null);$("#"+inputId).value="";$("#"+infoId).style.display="none"});
+}
+bindFile("historyFile","historyInfo","historyName","clearHistory",f=>historyDoc=f);
+bindFile("recordXray","recordXrayInfo","recordXrayName","clearRecordXray",f=>recordImage=f);
+
+$("#patientForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const id=$("#patientId").value.trim();
+  if(!id){toast("Patient ID is required.");return}
+  const btn = $("#savePatientBtn");
+  btn.disabled = true;
+  btn.textContent = "Processing & Parsing…";
+
+  try {
+    let xrayPrediction = null;
+    if(recordImage){
+      try {
+        xrayPrediction = await callClassifier(recordImage, id);
+      } catch(err) {
+        xrayPrediction = "Pending classifier (" + err.message + ")";
+      }
+    }
+
+    const form = new FormData();
+    form.append("patient_id", id);
+    form.append("age", $("#patientAge").value.trim());
+    form.append("clinical_note", $("#patientNote").value.trim());
+    if(xrayPrediction) form.append("last_xray_prediction", xrayPrediction);
+    if(historyDoc) form.append("history_file", historyDoc);
+    if(recordImage) form.append("xray_file", recordImage);
+
+    const res = await fetch(API.patients, { method: "POST", body: form });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || "Failed to save patient");
+
+    $("#saveStatus").innerHTML = `
+      <strong>Patient ${escapeHtml(id)} saved to database!</strong><br>
+      ${data.patient.history_filename ? "✓ Parsed & indexed history file: "+escapeHtml(data.patient.history_filename)+"<br>" : ""}
+      ${data.patient.last_xray_prediction ? "✓ X-Ray Classifier Output: <strong>"+escapeHtml(data.patient.last_xray_prediction)+"</strong>" : ""}
+    `;
+    $("#saveStatus").classList.add("show");
+    toast("Patient record saved & parsed!");
+    fetchPatientsFromDB();
+    renderPatientDetail(data.patient);
+  } catch(err) {
+    toast("Error saving patient: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save to Database";
+  }
+});
+
+$("#resetPatient").addEventListener("click",()=>{
+  historyDoc=null;recordImage=null;
+  setTimeout(()=>{$("#historyInfo").style.display="none";$("#recordXrayInfo").style.display="none";$("#saveStatus").classList.remove("show")},0);
+});
+
+function renderPatientDetail(p){
+  const card = $("#patientDetailCard");
+  if(!p){ card.classList.remove("show"); return; }
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong style="font-size:14px;color:#202a49">Patient File: ${escapeHtml(p.patient_id)}</strong>
+      <span class="cite-badge">${escapeHtml(p.age || "Age N/A")}</span>
+    </div>
+    <div style="margin-top:8px">
+      <strong>Clinical Notes:</strong> ${escapeHtml(p.clinical_note || "None")}<br>
+      <strong>X-Ray Classifier Result:</strong> <span style="color:#2554b0;font-weight:700">${escapeHtml(p.last_xray_prediction || "No X-ray analyzed")}</span><br>
+      <strong>History File:</strong> ${escapeHtml(p.history_filename || "None")}
+    </div>
+    ${p.parsed_history_text ? `
+      <div style="margin-top:10px;background:#fff;border:1px solid #dce4f7;border-radius:10px;padding:10px;max-height:160px;overflow:auto;font-size:11px;white-space:pre-wrap">
+        <strong style="display:block;margin-bottom:4px;color:#3467be">Parsed Medical History (RAG Extracted):</strong>${escapeHtml(p.parsed_history_text)}
+      </div>
+    ` : ""}
+  `;
+  card.classList.add("show");
+}
+
+$("#lookupPatientBtn").addEventListener("click", async () => {
+  const pid = $("#lookupPatientInput").value.trim();
+  if(!pid){ toast("Enter a Patient ID to search."); return; }
+  try {
+    const res = await fetch(`${API.patients}/${encodeURIComponent(pid)}`);
+    if(!res.ok) throw new Error("Patient not found");
+    const p = await res.json();
+    renderPatientDetail(p);
+  } catch(err) {
+    $("#patientDetailCard").innerHTML = `<span style="color:#b02a37">No patient found with ID "${escapeHtml(pid)}".</span>`;
+    $("#patientDetailCard").classList.add("show");
+  }
+});
+
+async function fetchPatientsFromDB(){
+  const list = $("#patientList");
+  try {
+    const res = await fetch(API.patients);
+    const data = await res.json();
+    const patients = data.patients || [];
+    if(!patients.length){
+      list.innerHTML = '<div class="empty">No patient files in database yet.</div>';
+      return;
+    }
+    list.innerHTML = "";
+    patients.forEach(p => {
+      const row = document.createElement("div");
+      row.className = "patient-row";
+      row.innerHTML = `
+        <div class="patient-initial">P</div>
+        <div class="patient-meta">
+          <strong>${escapeHtml(p.patient_id)}</strong>
+          <small>${[
+            p.age || "Age N/A",
+            p.last_xray_prediction ? "X-Ray: " + p.last_xray_prediction : "No X-Ray",
+            p.history_filename ? "History: " + p.history_filename : "No History"
+          ].map(escapeHtml).join(" · ")}</small>
+        </div>
+      `;
+
+      const viewBtn = document.createElement("button");
+      viewBtn.textContent = "Inspect";
+      viewBtn.addEventListener("click", () => renderPatientDetail(p));
+
+      const chatBtn = document.createElement("button");
+      chatBtn.textContent = "Use in Chat";
+      chatBtn.addEventListener("click", () => {
+        $("#chatPatientId").value = p.patient_id;
+        loadPatientBanner(p.patient_id);
+        go("chat");
+        toast(`Patient ${p.patient_id} loaded into Clinical Chat.`);
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "danger-btn";
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", async () => {
+        await fetch(`${API.patients}/${encodeURIComponent(p.patient_id)}`, { method: "DELETE" });
+        toast(`Deleted patient ${p.patient_id}`);
+        $("#patientDetailCard").classList.remove("show");
+        fetchPatientsFromDB();
+      });
+
+      row.append(viewBtn, chatBtn, delBtn);
+      list.append(row);
+    });
+  } catch(err) {
+    list.innerHTML = `<div class="empty">Could not load patients from backend (${escapeHtml(err.message)}).</div>`;
+  }
+}
+
+fetchPatientsFromDB();
+</script>
+</body>
+</html>
