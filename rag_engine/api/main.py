@@ -1,13 +1,17 @@
 import os
+import sys
 import copy
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from pipeline.ingestion_pipeline import IngestionPipeline
 from pipeline.retrieval_pipeline import RetrievalPipeline
 from pipeline.rag_pipeline import EndToEndRAGPipeline
 from core.config_loader import load_pipeline_config
+from core.patient_store import PatientRecordStore
 
 from api.routers import (
     health_router,
@@ -15,7 +19,18 @@ from api.routers import (
     chunks_router,
     retrieval_router,
     generation_router,
+    patients_router,
 )
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+CLASSIFIER_DIR = REPO_ROOT / "classifiers" / "poneumonia"
+if CLASSIFIER_DIR.exists() and str(CLASSIFIER_DIR) not in sys.path:
+    sys.path.insert(0, str(CLASSIFIER_DIR))
+
+try:
+    from logic import router as pneumonia_classifier_router
+except ImportError:
+    pneumonia_classifier_router = None
 
 
 class RuntimeConfigUpdate(BaseModel):
@@ -70,9 +85,17 @@ def create_app(
     rag_pipeline: Optional[EndToEndRAGPipeline] = None,
 ) -> FastAPI:
     app = FastAPI(
-        title="Enterprise RAG Engine - End-to-End API",
-        version="3.0.0",
-        description="Modular REST API for ingestion, hybrid retrieval, quantitative evaluation, and LLM generation.",
+        title="CHESTWISE — Pediatric Pulmonary CDSS & RAG API",
+        version="3.2.0",
+        description="Unified Clinical Decision Support System combining chest X-ray classification, patient history management, and evidence-grounded RAG.",
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     cfg = load_default_config()
@@ -86,16 +109,50 @@ def create_app(
         retrieval_pipeline=active_retrieval,
     )
 
+    dsn = cfg.get("document_store", {}).get("params", {}).get("dsn", ":memory:")
+    provider = cfg.get("document_store", {}).get("provider", "sqlite_store")
+    patient_store = PatientRecordStore(dsn=dsn, provider=provider)
+
     app.state.config = cfg
     app.state.pipeline = active_ingest
     app.state.retrieval_pipeline = active_retrieval
     app.state.rag_pipeline = active_rag
+    app.state.patient_store = patient_store
 
     app.include_router(health_router.router)
     app.include_router(documents_router.router)
     app.include_router(chunks_router.router)
     app.include_router(retrieval_router.router)
     app.include_router(generation_router.router)
+    app.include_router(patients_router.router)
+
+    if pneumonia_classifier_router is not None:
+        app.include_router(pneumonia_classifier_router)
+
+    @app.get("/documents/{file_id}/view", tags=["Documents Management"])
+    def view_raw_document(file_id: str, request: Request):
+        raw_file = request.app.state.pipeline.store.get_raw_file(file_id)
+        if not raw_file:
+            raise HTTPException(status_code=404, detail="Document not found")
+        media_map = {
+            ".pdf": "application/pdf",
+            ".md": "text/plain; charset=utf-8",
+            ".txt": "text/plain; charset=utf-8",
+            ".json": "application/json",
+        }
+        media_type = media_map.get(raw_file.file_format.lower(), "application/octet-stream")
+        return Response(
+            content=raw_file.raw_bytes,
+            media_type=media_type,
+            headers={"Content-Disposition": f'inline; filename="{raw_file.filename}"'},
+        )
+
+    @app.get("/ui", include_in_schema=False)
+    def serve_clinical_ui():
+        for candidate in [REPO_ROOT / "client" / "index.htm", REPO_ROOT / "client" / "index.html"]:
+            if candidate.exists():
+                return FileResponse(candidate)
+        return {"detail": "UI file not found in client/index.htm"}
 
     @app.get("/config", tags=["Runtime Configuration"])
     def get_active_config(request: Request):
@@ -113,15 +170,12 @@ def create_app(
 
         if updates.semantic_weight is not None and hasattr(ret_pipe.reranker, "semantic_weight"):
             ret_pipe.reranker.semantic_weight = float(updates.semantic_weight)
-            cfg_state.setdefault("retrieval", {}).setdefault("reranker", {}).setdefault("params", {})["semantic_weight"] = float(updates.semantic_weight)
 
         if updates.lexical_weight is not None and hasattr(ret_pipe.reranker, "lexical_weight"):
             ret_pipe.reranker.lexical_weight = float(updates.lexical_weight)
-            cfg_state.setdefault("retrieval", {}).setdefault("reranker", {}).setdefault("params", {})["lexical_weight"] = float(updates.lexical_weight)
 
         if updates.section_boost is not None and hasattr(ret_pipe.reranker, "section_boost"):
             ret_pipe.reranker.section_boost = float(updates.section_boost)
-            cfg_state.setdefault("retrieval", {}).setdefault("reranker", {}).setdefault("params", {})["section_boost"] = float(updates.section_boost)
 
         gen_params = cfg_state.setdefault("generation", {}).setdefault("params", {})
         if updates.model_name is not None:
@@ -143,15 +197,6 @@ def create_app(
         if updates.user_prompt_template is not None:
             rag_pipe.generator.user_prompt_template = updates.user_prompt_template.strip()
             gen_params["user_prompt_template"] = updates.user_prompt_template.strip()
-
-        guard_cfg = cfg_state.setdefault("guardrails", {})
-        if updates.min_citation_token_overlap is not None:
-            rag_pipe.min_citation_overlap = int(updates.min_citation_token_overlap)
-            guard_cfg["min_citation_token_overlap"] = int(updates.min_citation_token_overlap)
-
-        if updates.refusal_phrases is not None:
-            rag_pipe.refusal_phrases = tuple(updates.refusal_phrases)
-            guard_cfg["refusal_phrases"] = updates.refusal_phrases
 
         return {
             "status": "updated",
