@@ -1,33 +1,65 @@
-# ✦ Modular RAG Engine
+# CHESTWISE: Pediatric Pulmonary Clinical Decision Support System
 
-> A domain-agnostic, schema-driven End-to-End Retrieval-Augmented Generation (RAG) architecture engineered on strict SOLID principles, ACID persistence, and deterministic execution.
+![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.103.0-009688.svg)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-PgVector-336791.svg)
 
-![Python Version](https://img.shields.io/badge/python-3.11%2B-1f2937.svg?style=flat-square&logo=python&logoColor=white)
-![Architecture](https://img.shields.io/badge/architecture-SOLID%20%7C%20Plug--and--Play-0f172a.svg?style=flat-square)
-![Data Integrity](https://img.shields.io/badge/persistence-ACID%20%7C%20Idempotent-111827.svg?style=flat-square)
-
-The **Modular RAG Engine** is a full-lifecycle document intelligence, retrieval, and grounded generation framework. Rather than coupling system logic to specific databases, file systems, or model providers, the engine treats every stage of the RAG lifecycle—parsing, normalization, chunking, relational persistence, vector indexing, reranking, context augmentation, and LLM synthesis—as an interchangeable, contract-bound plugin orchestrated via declarative configurations.
-
----
-
-## Engineering Philosophy
-
-- **Declarative Configuration & Registry Binding:** Runtime behavior is governed by `pipeline_config.yaml` and `prompts.yaml`. A Singleton Registry resolves provider keys into concrete class implementations without hard-coded dependencies.
-- **Zero-Filesystem Byte-Stream Ingestion:** Raw files are processed directly from memory streams into ACID relational storage (`BYTEA`/`BLOB`), enabling stateless container execution.
-- **Two-Tier Cryptographic Idempotency:**
-  - *Payload Deduplication:* `SHA-256` binary hashing prevents duplicate storage of identical files and dynamically maps HTTP responses (`201 Created` vs. `200 OK`).
-  - *Execution Caching:* Configuration fingerprinting (`config_hash`) caches chunking and indexing states per parameter profile, bypassing redundant compute unless explicitly overridden.
-- **Unbroken Evidence Provenance:** Immutable value objects (`SourceMetadata`) propagate document origin, version timestamps, and section headers from raw ingestion through to the final LLM citation payload.
-- **Selective Abstention Gate:** Retrieval scores are evaluated against strict confidence thresholds prior to LLM invocation, preventing hallucinated synthesis when supporting evidence is insufficient.
+CHESTWISE is an extensible, AI-powered Pediatric Clinical Decision Support System (CDSS). It bridges the gap between deep learning-based medical imaging and evidence-grounded clinical guidelines. Designed with a strict "Clinician-First" philosophy, it provides pediatric pulmonologists with a unified workspace to analyze chest radiographs, track longitudinal patient records, and evaluate proposed treatment regimens using advanced Retrieval-Augmented Generation (RAG).
 
 ---
 
-## End-to-End System Architecture
+## System Capabilities
 
-The diagram below depicts the complete system topology across three planes: **Control & Configuration**, **Write Path (Ingestion & Indexing)**, and **Read Path (Retrieval, Augmentation & Generation)**. 
-*(Legend: `●` Implemented | `◌` Active Integration)*
+* **AI Treatment Evaluator:** Validates proposed pediatric antibiotic regimens, verifies weight-based dosages (mg/kg/day), and highlights contraindications based on retrieved medical guidelines.
+* **Chest X-Ray Classification:** Integrated deep learning classifier to analyze pediatric chest radiographs (Normal vs. Pneumonia) and track imaging progression across patient visits.
+* **Clinical Guideline RAG Engine:** A hybrid-search RAG pipeline (Vector + BM25 with Reciprocal Rank Fusion) that parses clinical PDF/MD guidelines, providing highly accurate, inline-cited answers to clinical queries.
+* **Longitudinal Patient Dossiers:** Auto-generates patient IDs and maintains comprehensive clinical timelines, including parsed medical histories, vital signs, and radiographic records.
+* **Modern Clinical Workspace:** A clean, responsive UI built with vanilla technologies, featuring interactive clinical intake forms and dynamic patient dossiers.
 
+---
 
-<img alt="FastAPI Qdrant Retrieval Evaluation Pipeline-2026-10-25-060312" src="https://github.com/user-attachments/assets/4d35b856-9ca4-4117-b0f4-6a2678a6ee32" />
+## Architecture Overview
 
-# Pulmonary-clinical-decision-support-system
+CHESTWISE operates on a decoupled, microservice-friendly architecture utilizing FastAPI, PostgreSQL (PgVector), and local/remote LLM integrations.
+
+```mermaid
+graph TD
+    classDef frontend fill:#1b1f32,stroke:#2b6ef2,stroke-width:2px,color:#fff;
+    classDef api fill:#2563eb,stroke:#fff,stroke-width:2px,color:#fff;
+    classDef rag fill:#eef2ff,stroke:#2563eb,stroke-width:2px,color:#13182b;
+    classDef db fill:#f8faff,stroke:#1b1f32,stroke-width:2px,color:#13182b;
+    classDef model fill:#1b1f32,stroke:#fff,stroke-width:2px,color:#fff;
+
+    UI[Clinical Workspace UI]:::frontend
+
+    subgraph Backend [FastAPI Gateway]
+        API[API Router]:::api
+    end
+
+    subgraph Knowledge Engine [RAG Pipeline]
+        Ingestion[Ingestion & Chunking]:::rag
+        Retriever[Hybrid Retriever + RRF]:::rag
+        Generator[LLM Generator]:::rag
+    end
+
+    subgraph Storage [Databases]
+        PatientDB[(Patient Profiles DB)]:::db
+        VectorDB[(PgVector Guidelines DB)]:::db
+    end
+
+    subgraph AI Models
+        Classifier[CNN Pneumonia Classifier]:::model
+    end
+
+    UI <-->|REST API| API
+    API -->|Upload Image| Classifier
+    API <-->|CRUD Operations| PatientDB
+    API -->|Upload Guidelines| Ingestion
+    Ingestion -->|Embeddings| VectorDB
+    API -->|Clinical Query| Retriever
+    Retriever <-->|Search| VectorDB
+    Retriever -->|Context Chunks| Generator
+    Generator -->|Cited Answer| API
+
+  
