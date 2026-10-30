@@ -277,6 +277,16 @@ input[type=file]{display:none}
 
 @media(max-width:920px){.services{grid-template-columns:repeat(2,1fr)}.chat-layout,.two-col,.dossier-grid{grid-template-columns:1fr}.footer{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){.wrap{width:min(100% - 28px,1240px)}.topbar{height:72px}.menu-toggle{display:block}.nav{display:none;position:absolute;z-index:20;top:65px;right:14px;left:14px;background:#f6f8ff;padding:12px;border-radius:20px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav.open{display:flex}.form-grid,.form-grid-3{grid-template-columns:1fr}}
+
+.demo-banner{display:none;width:min(1260px,calc(100% - 48px));margin:10px auto 0;padding:13px 16px;border:1px solid #f0d59a;border-radius:14px;background:#fff8e8;color:#79551b;font-size:12.5px;line-height:1.6}
+.demo-banner.show{display:block}
+.demo-banner strong{font-weight:800}
+.demo-banner a{color:#1e4db7;text-decoration:underline;font-weight:800}
+.demo-badge{display:inline-flex;align-items:center;gap:6px;background:#fff3d6;color:#8a5b09;border:1px solid #f0d59a;border-radius:99px;padding:5px 11px;font-size:11px;font-weight:800}
+.demo-badge:before{content:"";width:7px;height:7px;border-radius:50%;background:#d99a18}
+.demo-chat-closed{padding:10px 13px;margin:0 22px 12px;border-radius:10px;background:#fff8e8;color:#79551b;font-size:12px;line-height:1.5;display:none}
+.demo-chat-closed.show{display:block}
+
 </style>
 </head>
 <body>
@@ -293,6 +303,9 @@ input[type=file]{display:none}
   </nav>
 </header>
 
+<div class="demo-banner" id="demoBanner" role="status">
+  <strong>Demo Space:</strong> The frontend is running without its backend. Patient records are stored locally in this browser. Clinical AI, guideline search, and X-ray classification require a connected backend.
+</div>
 <main>
 <!-- PAGE 1: OVERVIEW -->
 <section class="page active" id="page-home">
@@ -336,7 +349,7 @@ input[type=file]{display:none}
       <p>Consult the Guideline Expert, attach a chest X-ray for classification, or link a patient record.</p>
     </div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <span class="online">Connected: Guideline Expert + X-Ray Classifier</span>
+      <span class="online" id="backendStatusBadge">Checking backend…</span>
       <button class="secondary" data-page="records">Patient Records ↗</button>
     </div>
   </div>
@@ -372,12 +385,12 @@ input[type=file]{display:none}
     <div class="chat-head">
       <div>
         <strong>Pediatric Pulmonary Decision Support</strong>
-        <div style="margin-top:4px"><span class="conn-pill">Patient Data Connected</span></div>
+        <div style="margin-top:4px"><span class="conn-pill" id="patientStatusBadge">Checking patient storage…</span></div>
       </div>
       <button class="secondary" id="newChat">＋ New Session</button>
     </div>
     <div class="chat-scroll" id="messages">
-     <div class="message"><div class="avatar">C</div><div class="bubble"><h4>Welcome, Doctor</h4>Load a patient by ID or name on the left to review their clinical profile, attach a pediatric chest X-ray for classification, or ask clinical questions about pneumonia management and dosing.<div class="notice">All clinical guidance includes direct links to the verified reference documents.</div></div></div>
+     <div class="message"><div class="avatar">C</div><div class="bubble"><h4>Welcome, Doctor</h4>Load a patient by ID or name on the left to review their clinical profile, attach a pediatric chest X-ray, or ask clinical questions. Backend-dependent clinical features require an active backend connection.</div></div>
     </div>
     <div class="composer">
       <div class="composer-inner">
@@ -401,8 +414,8 @@ input[type=file]{display:none}
       <p>Register a new patient with an auto-generated ID, write or upload their history, or click any patient on the right to open their full clinical dossier.</p>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span class="online">Connected: Guideline Expert + X-Ray Classifier</span>
-      <span class="conn-pill">Patient Data Connected</span>
+      <span class="online">Checking backend…</span>
+      <span class="conn-pill">Checking patient storage…</span>
     </div>
   </div>
 
@@ -497,7 +510,7 @@ input[type=file]{display:none}
       <div class="dossier-id-row">
         <span class="cite-badge" id="profBadgeId" style="font-size:12.5px;padding:4px 12px">PT-0001</span>
         <button type="button" class="copy-chip" id="profCopyIdBtn">Copy ID</button>
-        <span class="online">Connected: Guideline Expert + X-Ray Classifier</span>
+        <span class="online">Checking backend…</span>
       </div>
       <h1 class="dossier-title" id="profHeaderName">Patient Name</h1>
       <div class="vitals-pills">
@@ -601,6 +614,163 @@ const API = {
   classify: "http://localhost:8000/classifiers/predict",
   classifyFallback: "http://localhost:8001/classifiers/predict"
 };
+const DEMO_REPO_URL = "PASTE_YOUR_REPOSITORY_URL_HERE";
+const DEMO_STORAGE_KEY = "pulmora_demo_patients_v1";
+const nativeFetch = window.fetch.bind(window);
+let backendMode = "checking";
+let demoChatMessageCount = 0;
+let demoChatLocked = false;
+
+const DEMO_CHAT_MESSAGES = [
+  () => `<h4>Welcome to Pulmora Demo</h4>This is a frontend-only demo, so I can’t provide real clinical answers or access the live medical knowledge base right now. You can still explore the workspace, create and edit patient records, and see how the clinical workflow is organized.<div class="notice">To enable real RAG responses, X-ray classification, and guideline review, connect the backend using the setup instructions in the repository: <a href="${escapeHtml(DEMO_REPO_URL)}" target="_blank" rel="noopener">Backend repository ↗</a><br>Setup: clone the repository, install its dependencies, configure the required environment variables, start the API server, then update the frontend API configuration to point to that server.</div>`,
+  () => `You can use Patient Records and the patient timeline in this demo. Clinical search, treatment evaluation, guideline indexing, and X-ray predictions are disabled until the backend services are running. No real clinical result will be generated here.`,
+  () => `That’s the end of this demo chat session. I mentioned that I’m running without the backend, so I can’t answer clinical questions with real evidence. You can connect the backend by following the repository setup instructions: <a href="${escapeHtml(DEMO_REPO_URL)}" target="_blank" rel="noopener">Open the repository ↗</a>. Start a new session if you’d like to replay this demo.`
+];
+
+function demoPatientsRead(){
+  try {
+    const value = JSON.parse(localStorage.getItem(DEMO_STORAGE_KEY) || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (_) { return []; }
+}
+function demoPatientsWrite(patients){
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(patients));
+}
+function demoNextId(patients=demoPatientsRead()){
+  const max = patients.reduce((n,p) => {
+    const m = String(p.patient_id || "").match(/^PT-(\d+)$/);
+    return m ? Math.max(n, Number(m[1])) : n;
+  }, 0);
+  return `PT-${String(max+1).padStart(4,"0")}`;
+}
+function demoResponse(data, status=200){
+  return new Response(JSON.stringify(data), {status, headers:{"Content-Type":"application/json"}});
+}
+function demoPatientDefaults(p){
+  return {
+    patient_id:p.patient_id, patient_name:p.patient_name || "", gender:p.gender || "",
+    age:p.age || "", weight_kg:p.weight_kg || "", clinical_note:p.clinical_note || "",
+    parsed_history_text:p.parsed_history_text || "", history_filename:p.history_filename || "",
+    proposed_treatment:p.proposed_treatment || "", last_xray_prediction:p.last_xray_prediction || "",
+    ai_treatment_evaluation:"", timeline:Array.isArray(p.timeline)?p.timeline:[],
+    created_at:p.created_at || new Date().toISOString(), updated_at:p.updated_at || new Date().toISOString()
+  };
+}
+async function probeBackend(){
+  try{
+    const controller = new AbortController();
+    const timer = setTimeout(()=>controller.abort(), 2200);
+    const response = await nativeFetch(`${API.ragBase}/openapi.json`, {method:"GET", mode:"cors", signal:controller.signal});
+    clearTimeout(timer);
+    backendMode = response.ok ? "connected" : "demo";
+  }catch(_){ backendMode = "demo"; }
+  updateBackendUI();
+  return backendMode;
+}
+function updateBackendUI(){
+  const isDemo = backendMode === "demo";
+  const banner = document.querySelector("#demoBanner");
+  if(banner) banner.classList.toggle("show", isDemo);
+
+  document.querySelectorAll(".online").forEach(el=>{
+    if(!String(el.textContent).includes("Connected:") && !String(el.textContent).includes("Checking backend")) return;
+    el.className = isDemo ? "demo-badge" : "online";
+    el.textContent = isDemo ? "Demo Space · Backend Offline" : "Connected: Guideline Expert + X-Ray Classifier";
+  });
+  document.querySelectorAll(".conn-pill").forEach(el=>{
+    if(!String(el.textContent).includes("Patient Data Connected") && !String(el.textContent).includes("Checking patient storage")) return;
+    el.className = isDemo ? "demo-badge" : "conn-pill";
+    el.textContent = isDemo ? "Local Demo Storage" : "Patient Data Connected";
+  });
+}
+const backendReady = probeBackend();
+
+async function appFetch(input, init={}){
+  await backendReady;
+  const url = typeof input === "string" ? input : input.url;
+  if(backendMode !== "demo" || !url.startsWith(API.ragBase)){
+    if(backendMode === "demo" && url.startsWith("http://localhost:8001/")) {
+      throw new Error("Backend unavailable in Demo Space.");
+    }
+    if(backendMode === "demo" && url.startsWith(API.ragBase)){
+      return demoApiRequest(url, init);
+    }
+    return nativeFetch(input, init);
+  }
+  return demoApiRequest(url, init);
+}
+async function demoApiRequest(url, init={}){
+  const method = String(init.method || "GET").toUpperCase();
+  const path = new URL(url, location.href).pathname;
+  const query = new URL(url, location.href).searchParams;
+  const patients = demoPatientsRead();
+  if(path === "/openapi.json") return demoResponse({demo:true});
+  if(path === "/patients/next-id") return demoResponse({next_patient_id:demoNextId(patients)});
+  if(path === "/patients" && method === "GET"){
+    const q = (query.get("q") || "").toLowerCase();
+    const filtered = patients.filter(p=>!q || `${p.patient_id} ${p.patient_name}`.toLowerCase().includes(q));
+    return demoResponse({patients:filtered,next_patient_id:demoNextId(patients)});
+  }
+  if(path === "/patients" && method === "POST"){
+    const form = init.body;
+    const get = key => form && typeof form.get === "function" ? (form.get(key) || "") : "";
+    const id = demoNextId(patients);
+    const historyFile = get("history_file");
+    const xrayFile = get("xray_file");
+    let historyText = String(get("manual_history_text") || "");
+    if(historyFile && typeof historyFile.text === "function"){
+      try { historyText = [historyText, await historyFile.text()].filter(Boolean).join("\n\n"); } catch(_){}
+    }
+    const p = demoPatientDefaults({
+      patient_id:id, patient_name:get("patient_name"), gender:get("gender"), age:get("age"),
+      weight_kg:get("weight_kg"), clinical_note:get("clinical_note"), parsed_history_text:historyText,
+      history_filename:historyFile && historyFile.name ? historyFile.name : "",
+      proposed_treatment:get("proposed_treatment"),
+      timeline:xrayFile && xrayFile.name ? [{filename:xrayFile.name,prediction:"Not classified in demo",note:"Demo upload — classification requires backend",timestamp:new Date().toLocaleString()}] : []
+    });
+    demoPatientsWrite([...patients,p]);
+    return demoResponse({patient:p},201);
+  }
+  const match = path.match(/^\/patients\/([^/]+)(?:\/(profile|xray|evaluate-treatment))?$/);
+  if(match){
+    const id = decodeURIComponent(match[1]);
+    const action = match[2];
+    const index = patients.findIndex(p=>p.patient_id === id || p.patient_name.toLowerCase() === id.toLowerCase());
+    if(method === "GET" && !action){
+      return index < 0 ? demoResponse({detail:"Patient record not found"},404) : demoResponse(patients[index]);
+    }
+    if(method === "DELETE" && !action){
+      if(index < 0) return demoResponse({detail:"Patient record not found"},404);
+      patients.splice(index,1); demoPatientsWrite(patients); return demoResponse({ok:true});
+    }
+    if(index < 0) return demoResponse({detail:"Patient record not found"},404);
+    if(method === "PATCH" && action === "profile"){
+      const body = JSON.parse(init.body || "{}");
+      const p = {...patients[index], ...body, parsed_history_text:body.manual_history_text ?? body.parsed_history_text ?? patients[index].parsed_history_text, updated_at:new Date().toISOString()};
+      delete p.manual_history_text;
+      patients[index]=p; demoPatientsWrite(patients);
+      return demoResponse({patient:p});
+    }
+    if(method === "PATCH" && action === "xray"){
+      const body = JSON.parse(init.body || "{}");
+      const item = {filename:body.filename || "demo-xray",prediction:"Not classified in demo",note:body.clinical_note || "X-ray upload saved locally; classification requires backend",timestamp:new Date().toLocaleString(),image_data_url:body.image_data_url || ""};
+      patients[index].timeline = [...(patients[index].timeline || []),item];
+      patients[index].last_xray_prediction = item.prediction;
+      patients[index].updated_at = new Date().toISOString();
+      demoPatientsWrite(patients);
+      return demoResponse({patient:patients[index]});
+    }
+    if(action === "evaluate-treatment" && method === "POST"){
+      return demoResponse({detail:"Treatment evaluation requires a connected backend."},503);
+    }
+  }
+  if(path === "/patients/clinical-chat" || path === "/documents" || path.includes("/classifiers/")){
+    return demoResponse({detail:"This feature requires a connected backend. You are in Demo Space."},503);
+  }
+  return demoResponse({detail:"This feature is unavailable in Demo Space."},503);
+}
+window.fetch = appFetch;
+
 
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
@@ -695,9 +865,9 @@ async function callClassifier(file, patientId){
 
   let res;
   try {
-    res = await fetch(API.classify, { method: "POST", body: form });
+    res = await appFetch(API.classify, { method: "POST", body: form });
   } catch (_) {
-    res = await fetch(API.classifyFallback, { method: "POST", body: form });
+    res = await appFetch(API.classifyFallback, { method: "POST", body: form });
   }
   if(!res.ok) throw new Error("Classifier returned status " + res.status);
   const data = await res.json();
@@ -726,6 +896,7 @@ $$(".suggestion").forEach(b=>b.addEventListener("click",()=>{$("#chatInput").val
 $("#guidelineFile").addEventListener("change", async (e) => {
   const f = e.target.files[0];
   if(!f) return;
+  if(backendMode === "demo"){ toast("Guideline indexing requires a connected backend."); e.target.value=""; return; }
   toast("Uploading reference guideline...");
   const form = new FormData();
   form.append("file", f);
@@ -733,7 +904,7 @@ $("#guidelineFile").addEventListener("change", async (e) => {
   form.append("auto_chunk", "true");
   form.append("auto_index", "true");
   try {
-    const res = await fetch(API.documents, { method: "POST", body: form });
+    const res = await appFetch(API.documents, { method: "POST", body: form });
     const data = await res.json();
     if(!res.ok) throw new Error(data.detail || "Upload failed");
     toast(`Guideline "${f.name}" indexed.`);
@@ -747,7 +918,7 @@ async function loadPatientBanner(pid){
   const banner = $("#activePatientBanner");
   if(!pid){ banner.classList.remove("show"); return; }
   try {
-    const res = await fetch(`${API.patients}/${encodeURIComponent(pid)}`);
+    const res = await appFetch(`${API.patients}/${encodeURIComponent(pid)}`);
     if(!res.ok){
       banner.innerHTML = `<strong style="color:#b02a37">No patient found matching "${escapeHtml(pid)}".</strong>`;
       banner.classList.add("show");
@@ -797,6 +968,30 @@ async function sendChat(){
   if(message)addMessage(message,"user");
   if(chatImage)addMessage(`Attached X-Ray: ${chatImage.name}`,"user");
 
+  if(backendMode === "demo"){
+    if(demoChatLocked){
+      $("#chatInput").value = "";
+      return;
+    }
+    if(message || chatImage){
+      const replyIndex = demoChatMessageCount;
+      demoChatMessageCount += 1;
+      if(chatImage){
+        chatImage=null; $("#chatXray").value=""; $("#chatFileInfo").style.display="none";
+        addMessage("The image is visible in this demo, but I can’t classify X-rays without the backend.", "assistant");
+      }
+      if(message) addMessage(DEMO_CHAT_MESSAGES[Math.min(replyIndex,2)](), "assistant", true);
+      if(demoChatMessageCount >= 3){
+        demoChatLocked = true;
+        $("#chatInput").disabled = true;
+        $("#sendChat").disabled = true;
+        $("#sendChat").style.opacity = ".45";
+        $("#demoChatClosed").classList.add("show");
+      }
+    }
+    return;
+  }
+
   if(chatImage){
     const currentFile = chatImage;
     chatImage=null;$("#chatXray").value="";$("#chatFileInfo").style.display="none";
@@ -811,7 +1006,7 @@ async function sendChat(){
         ${patientId ? `<br><small style="color:#1f6e52">✓ Saved to Patient ${escapeHtml(patientId)} timeline</small>` : ""}
       `;
       if(patientId){
-        await fetch(`${API.patients}/${encodeURIComponent(patientId)}/xray`, {
+        await appFetch(`${API.patients}/${encodeURIComponent(patientId)}/xray`, {
           method: "PATCH",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({ filename: currentFile.name, prediction: predSummary, image_data_url: dataUrl })
@@ -826,7 +1021,7 @@ async function sendChat(){
   if(message){
     const wait=addMessage("Consulting Guideline Expert…");
     try{
-      const res=await fetch(API.chat,{
+      const res=await appFetch(API.chat,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
@@ -856,6 +1051,14 @@ $("#sendChat").addEventListener("click",sendChat);
 $("#chatInput").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}});
 $("#newChat").addEventListener("click",()=>{
   lastClassifierSummary=null;
+  if(backendMode === "demo"){
+    demoChatMessageCount = 0;
+    demoChatLocked = false;
+    $("#chatInput").disabled = false;
+    $("#sendChat").disabled = false;
+    $("#sendChat").style.opacity = "";
+    $("#demoChatClosed").classList.remove("show");
+  }
   $("#messages").innerHTML='<div class="message"><div class="avatar">C</div><div class="bubble"><h4>New Session Started</h4>Load a patient record on the left or ask a clinical question below.</div></div>';
 });
 
@@ -879,7 +1082,7 @@ $("#patientForm").addEventListener("submit", async e => {
 
   try {
     let xrayPrediction = "";
-    if(recordImage){
+    if(recordImage && backendMode !== "demo"){
       xrayPrediction = await callClassifier(recordImage, currentGeneratedId);
     }
 
@@ -899,14 +1102,14 @@ $("#patientForm").addEventListener("submit", async e => {
     if(historyDoc) form.append("history_file", historyDoc);
     if(recordImage) form.append("xray_file", recordImage);
 
-    const res = await fetch(API.patients, { method: "POST", body: form });
+    const res = await appFetch(API.patients, { method: "POST", body: form });
     const data = await res.json();
     if(!res.ok) throw new Error(data.detail || "Failed to save patient");
 
     const assignedId = data.patient.patient_id;
     $("#saveStatus").innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <span>✓ Created <strong>${escapeHtml(name)}</strong> with ID <strong>${escapeHtml(assignedId)}</strong></span>
+        <span>✓ Created <strong>${escapeHtml(name)}</strong> with ID <strong>${escapeHtml(assignedId)}</strong>${backendMode === "demo" ? " · Saved in this browser’s Demo Space" : ""}</span>
         <div style="display:flex;gap:6px">
           <button type="button" class="copy-chip" onclick="copyText('${escapeHtml(assignedId)}', 'Patient ID')">Copy ID</button>
           <button type="button" class="primary" style="padding:5px 12px;font-size:11px" onclick="openPatientProfile('${escapeHtml(assignedId)}')">Open Profile ↗</button>
@@ -947,7 +1150,7 @@ async function fetchPatientsFromDB(query=""){
   const list = $("#patientList");
   try {
     const url = query ? `${API.patients}?q=${encodeURIComponent(query)}` : API.patients;
-    const res = await fetch(url);
+    const res = await appFetch(url);
     const data = await res.json();
     if(data.next_patient_id){
       currentGeneratedId = data.next_patient_id;
@@ -988,7 +1191,7 @@ async function fetchPatientsFromDB(query=""){
 /* DEDICATED PATIENT PROFILE DOSSIER */
 window.openPatientProfile = async function(patientId){
   try {
-    const res = await fetch(`${API.patients}/${encodeURIComponent(patientId)}`);
+    const res = await appFetch(`${API.patients}/${encodeURIComponent(patientId)}`);
     if(!res.ok) throw new Error("Patient record not found");
     const p = await res.json();
     activeProfilePatient = p;
@@ -1065,7 +1268,7 @@ $("#profCancelEditBtn").addEventListener("click", () => {
 
 $("#profSaveEditBtn").addEventListener("click", async () => {
   if(!activeProfilePatient) return;
-  const res = await fetch(`${API.patients}/${encodeURIComponent(activeProfilePatient.patient_id)}/profile`, {
+  const res = await appFetch(`${API.patients}/${encodeURIComponent(activeProfilePatient.patient_id)}/profile`, {
     method: "PATCH",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({
@@ -1088,7 +1291,7 @@ $("#profSaveEditBtn").addEventListener("click", async () => {
 
 $("#profDeleteBtn").addEventListener("click", async () => {
   if(!activeProfilePatient) return;
-  await fetch(`${API.patients}/${encodeURIComponent(activeProfilePatient.patient_id)}`, { method: "DELETE" });
+  await appFetch(`${API.patients}/${encodeURIComponent(activeProfilePatient.patient_id)}`, { method: "DELETE" });
   toast(`Deleted ${activeProfilePatient.patient_id}`);
   activeProfilePatient = null;
   go("records");
@@ -1103,6 +1306,7 @@ $("#profOpenInChatBtn").addEventListener("click", () => {
 
 $("#profEvaluateBtn").addEventListener("click", async () => {
   if(!activeProfilePatient) return;
+  if(backendMode === "demo"){ toast("Treatment review requires a connected backend."); return; }
   const treatment = $("#profTreatmentInput").value.trim();
   if(!treatment){
     toast("Enter a proposed medication or treatment plan first.");
@@ -1112,7 +1316,7 @@ $("#profEvaluateBtn").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Evaluating…";
   try {
-    const res = await fetch(`${API.patients}/${encodeURIComponent(activeProfilePatient.patient_id)}/evaluate-treatment`, {
+    const res = await appFetch(`${API.patients}/${encodeURIComponent(activeProfilePatient.patient_id)}/evaluate-treatment`, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
@@ -1147,6 +1351,10 @@ $("#uploadFollowupBtn").addEventListener("click", async () => {
     toast("Select a chest X-ray image first.");
     return;
   }
+  if(backendMode === "demo"){
+    toast("X-ray classification requires a connected backend. The image was not classified.");
+    return;
+  }
   const btn = $("#uploadFollowupBtn");
   btn.disabled = true;
   btn.textContent = "Classifying & Adding to Timeline…";
@@ -1154,7 +1362,7 @@ $("#uploadFollowupBtn").addEventListener("click", async () => {
     const pred = await callClassifier(file, activeProfilePatient.patient_id);
     const dataUrl = await fileToDataUrl(file);
     const note = $("#followupNoteInput").value.trim() || "Follow-up chest X-ray";
-    const res = await fetch(`${API.patients}/${encodeURIComponent(activeProfilePatient.patient_id)}/xray`, {
+    const res = await appFetch(`${API.patients}/${encodeURIComponent(activeProfilePatient.patient_id)}/xray`, {
       method: "PATCH",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
