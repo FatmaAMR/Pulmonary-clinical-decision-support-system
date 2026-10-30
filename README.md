@@ -1,11 +1,11 @@
-# CHESTWISE: Pediatric Pulmonary Clinical Decision Support System
+# Pulmora: Pediatric Pulmonary Clinical Decision Support System
 
 ![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.103.0-009688.svg)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-PgVector-336791.svg)
 
-CHESTWISE is an extensible, AI-powered Pediatric Clinical Decision Support System (CDSS). It bridges the gap between deep learning-based medical imaging and evidence-grounded clinical guidelines. Designed with a strict "Clinician-First" philosophy, it provides pediatric pulmonologists with a unified workspace to analyze chest radiographs, track longitudinal patient records, and evaluate proposed treatment regimens using advanced Retrieval-Augmented Generation (RAG).
+Pulmora is an extensible, AI-powered Pediatric Clinical Decision Support System (CDSS). It bridges the gap between deep learning-based medical imaging and evidence-grounded clinical guidelines. Designed with a strict "Clinician-First" philosophy, it provides pediatric pulmonologists with a unified workspace to analyze chest radiographs, track longitudinal patient records, and evaluate proposed treatment regimens using advanced Retrieval-Augmented Generation (RAG).
 
 ---
 
@@ -21,7 +21,7 @@ CHESTWISE is an extensible, AI-powered Pediatric Clinical Decision Support Syste
 
 ## Architecture Overview
 
-CHESTWISE operates on a decoupled, microservice-friendly architecture utilizing FastAPI, PostgreSQL (PgVector), and local/remote LLM integrations.
+Pulmora operates on a decoupled, microservice-friendly architecture utilizing FastAPI, PostgreSQL (PgVector), and local/remote LLM integrations.
 
 ```mermaid
 graph TD
